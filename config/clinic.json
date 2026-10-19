@@ -71,7 +71,7 @@
     "introduction": "Hello! Welcome to Dr. XYZ's clinic. I'm the virtual receptionist. I can help you explore the clinic's services, check appointment availability, and book an in-person or online consultation. How may I help you today?",
     "disclaimer": "I'm a virtual assistant for appointments and clinic information — I can't provide medical advice or emergencies help. For medical emergencies in India, call 112 immediately."
   },
-  "languages": ["en", "hi", "te"],
+  "languages": ["en", "hi"],
   "notifications": {
     "reminderLeadHours": 24,
     "templates": {

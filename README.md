@@ -40,6 +40,7 @@ The app runs fully in **Demo Mode** with zero external credentials — booking, 
 | Secure admin dashboard (auth, RBAC gate, audit log, rate limits) | ✅ |
 | Patient self-service lookup / cancel / reschedule | ✅ |
 | Automated tests (29) | ✅ `npm test` |
+| Full bilingual UI (English + हिंदी) — pages, booking, admin, AI receptionist | ✅ language switcher in navbar |
 
 ## Project structure
 
@@ -75,6 +76,10 @@ docs/                   # setup & deployment guides
 - **[docs/LAUNCH.md](docs/LAUNCH.md)** — pre-launch checklist for the clinic
 - **[docs/EXTERNAL_CREDENTIALS.md](docs/EXTERNAL_CREDENTIALS.md)** — every feature needing credentials
 - **[docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)** — acceptance test results
+
+## Languages
+
+The website is fully bilingual: **English** and **Hindi (हिंदी)**. The language switcher (navbar) updates every visible string — all pages, the booking wizard, appointment lookup, the admin portal, and the AI receptionist's chat replies and voice. The choice is remembered per browser. Clinic-editable content (services, FAQs, notification templates in `config/clinic.json`) remains in the language the clinic configures.
 
 ## Safety & privacy
 

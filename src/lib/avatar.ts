@@ -51,7 +51,7 @@ export function avatarCapabilities(): AvatarCapability {
         voice: true,
         lipSync: true,
         animation: true,
-        languages: ["en", "hi", "te"],
+        languages: ["en", "hi"],
         provider: "D-ID Streaming Conversation",
         note: "Realistic streaming avatar. Patient audio is processed by D-ID — review their data terms before enabling (see docs/AVATAR_SETUP.md).",
       };
@@ -61,7 +61,7 @@ export function avatarCapabilities(): AvatarCapability {
         voice: true, // browser SpeechSynthesis — no data leaves the device
         lipSync: false, // approximated mouth animation, not true lip-sync
         animation: true,
-        languages: ["en", "hi", "te"],
+        languages: ["en", "hi"],
         provider: "Local demo avatar",
         note: "Demo avatar with browser-based voice (no data leaves the patient's device). Connect HeyGen or D-ID for full video lip-sync — integration point: src/lib/avatar.ts.",
       };

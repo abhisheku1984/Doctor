@@ -2,7 +2,7 @@
  * Time utilities — every time in this system is Asia/Kolkata.
  * All date math uses minute-of-day integers to avoid DST/locale pitfalls.
  */
-import { TIMEZONE } from "./config";
+import { TIMEZONE } from "./config-shared";
 
 export const MINUTES_PER_DAY = 24 * 60;
 
@@ -58,6 +58,37 @@ export function displayTime(t: string): string {
 export function displayDate(dateKey: string): string {
   const d = new Date(`${dateKey}T00:00:00+05:30`);
   return d.toLocaleDateString("en-IN", { timeZone: TIMEZONE, weekday: "short", day: "numeric", month: "short", year: "numeric" });
+}
+
+/** "HH:MM" → "4:20 PM" formatted for a UI locale (e.g. "hi-IN"). */
+export function displayTimeL(t: string, locale: string): string {
+  if (locale.startsWith("en")) return displayTime(t);
+  const d = new Date(`2000-01-01T${t}:00+05:30`);
+  return d.toLocaleTimeString(locale, { timeZone: TIMEZONE, hour: "numeric", minute: "2-digit" });
+}
+
+/** "YYYY-MM-DD" formatted for a UI locale (e.g. "hi-IN"). */
+export function displayDateL(dateKey: string, locale: string): string {
+  const d = new Date(`${dateKey}T00:00:00+05:30`);
+  return d.toLocaleDateString(locale, {
+    timeZone: TIMEZONE,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+/** Long form for review screens: "Tuesday, 20 October 2026". */
+export function displayDateLongL(dateKey: string, locale: string): string {
+  const d = new Date(`${dateKey}T00:00:00+05:30`);
+  return d.toLocaleDateString(locale, {
+    timeZone: TIMEZONE,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 /**

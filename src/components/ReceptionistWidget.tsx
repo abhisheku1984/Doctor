@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar";
-import { useLanguage } from "./LanguageProvider";
+import { useLanguage, useLocale } from "./LanguageProvider";
 
 interface Message {
   role: "user" | "assistant";
@@ -23,7 +23,8 @@ interface AssistantReply {
 const STORAGE_KEY = "drxyz_receptionist_open";
 
 export function ReceptionistWidget() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -47,21 +48,32 @@ export function ReceptionistWidget() {
     );
     const saved = sessionStorage.getItem(STORAGE_KEY);
     if (saved === "1") setOpen(true);
-    // Greet on first open
+  }, []);
+
+  // Greet (in the active language) — re-greets when the language changes
+  // before any real conversation has started.
+  useEffect(() => {
+    let cancelled = false;
     fetch("/api/receptionist", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId, payload: "greet" }),
+      body: JSON.stringify({ sessionId, payload: "greet", lang }),
     })
       .then((r) => r.json())
       .then((data: AssistantReply) => {
-        if (data?.text) {
-          setMessages([{ role: "assistant", text: data.text.replace(/\*\*/g, "") }]);
-          setCapabilities(data.capabilities);
-        }
+        if (cancelled || !data?.text) return;
+        setMessages((m) => {
+          // Only replace an initial greeting; keep an ongoing conversation.
+          const onlyGreeting = m.length === 0 || (m.length === 1 && m[0].role === "assistant");
+          return onlyGreeting ? [{ role: "assistant", text: data.text.replace(/\*\*/g, "") }] : m;
+        });
+        setCapabilities(data.capabilities);
       })
       .catch(() => {});
-  }, [sessionId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, lang]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -73,7 +85,7 @@ export function ReceptionistWidget() {
       try {
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text.replace(/\*\*/g, ""));
-        u.lang = "en-IN";
+        u.lang = locale;
         u.rate = 1.0;
         u.onstart = () => setState("speaking");
         u.onend = () => setState((s) => (s === "speaking" ? "idle" : s));
@@ -84,7 +96,7 @@ export function ReceptionistWidget() {
         setState("idle");
       }
     },
-    [muted, voiceSupported]
+    [muted, voiceSupported, locale]
   );
 
   const stopSpeech = useCallback(() => {
@@ -104,20 +116,20 @@ export function ReceptionistWidget() {
         const res = await fetch("/api/receptionist", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId, message: clean }),
+          body: JSON.stringify({ sessionId, message: clean, lang }),
         });
         const data: AssistantReply = await res.json();
-        const reply = data.text ?? "Sorry, something went wrong.";
+        const reply = data.text ?? t("rw.errorReply");
         setMessages((m) => [...m, { role: "assistant", text: reply.replace(/\*\*/g, "") }]);
         if (data.capabilities) setCapabilities(data.capabilities);
         setState("idle");
         speak(reply);
       } catch {
         setState("error");
-        setMessages((m) => [...m, { role: "assistant", text: "I'm having trouble connecting right now. Please call the clinic, or try again shortly." }]);
+        setMessages((m) => [...m, { role: "assistant", text: t("rw.connectError") }]);
       }
     },
-    [sessionId, state, speak]
+    [sessionId, state, speak, lang, t]
   );
 
   const handlePayload = useCallback(
@@ -127,7 +139,7 @@ export function ReceptionistWidget() {
         const res = await fetch("/api/receptionist", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId, payload }),
+          body: JSON.stringify({ sessionId, payload, lang }),
         });
         const data: AssistantReply = await res.json();
         const reply = data.text ?? "";
@@ -138,7 +150,7 @@ export function ReceptionistWidget() {
         setState("error");
       }
     },
-    [sessionId, speak]
+    [sessionId, speak, lang]
   );
 
   const startListening = useCallback(() => {
@@ -146,7 +158,7 @@ export function ReceptionistWidget() {
     try {
       const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const rec = new SR();
-      rec.lang = "en-IN";
+      rec.lang = locale;
       rec.interimResults = false;
       rec.maxAlternatives = 1;
       rec.onstart = () => setState("listening");
@@ -161,7 +173,7 @@ export function ReceptionistWidget() {
     } catch {
       setState("error");
     }
-  }, [send, sttSupported]);
+  }, [send, sttSupported, locale]);
 
   const restart = useCallback(() => {
     stopSpeech();
@@ -188,23 +200,24 @@ export function ReceptionistWidget() {
     disconnected: "bg-slate-400",
   };
   const statusLabel: Record<VoiceState, string> = {
-    idle: "Ready",
-    listening: "Listening…",
-    speaking: "Speaking…",
-    loading: "Thinking…",
-    error: "Connection issue — text chat still works",
-    disconnected: "Disconnected",
+    idle: t("rw.ready"),
+    listening: t("rw.listening"),
+    speaking: t("rw.speaking"),
+    loading: t("rw.thinking"),
+    error: t("rw.connIssue"),
+    disconnected: t("rw.disconnected"),
   };
 
   return (
     <>
       {/* Floating trigger */}
       <button
+        data-receptionist-toggle="1"
         onClick={() => {
           setOpen((v) => !v);
           sessionStorage.setItem(STORAGE_KEY, open ? "0" : "1");
         }}
-        aria-label="Talk to our AI receptionist"
+        aria-label={t("rw.open")}
         aria-expanded={open}
         className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-teal-600 text-white shadow-lift transition-transform hover:scale-105 focus-visible:outline-none"
       >
@@ -224,14 +237,14 @@ export function ReceptionistWidget() {
       {open && (
         <div
           role="dialog"
-          aria-label="AI receptionist"
+          aria-label={t("rw.dialog")}
           className="fixed bottom-24 right-5 z-50 flex h-[540px] w-[min(92vw,380px)] flex-col overflow-hidden rounded-2xl border border-navy-100 bg-white shadow-lift sm:bottom-6 sm:right-6"
         >
           {/* Header */}
           <div className="flex items-center gap-3 border-b border-navy-100 bg-navy-950 px-4 py-3 text-white">
             <Avatar size={44} speaking={state === "speaking"} />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">Virtual Receptionist</p>
+              <p className="text-sm font-semibold">{t("rw.title")}</p>
               <p className="flex items-center gap-1.5 text-xs text-navy-300">
                 <span className={`h-2 w-2 rounded-full ${statusColor[state]}`} aria-hidden="true" />
                 {statusLabel[state]}
@@ -241,7 +254,7 @@ export function ReceptionistWidget() {
               <button
                 onClick={() => setMuted((m) => !m)}
                 aria-pressed={muted}
-                aria-label={muted ? "Unmute voice" : "Mute voice"}
+                aria-label={muted ? t("rw.unmute") : t("rw.mute")}
                 className={`rounded-lg p-2 transition-colors ${muted ? "bg-white/20 text-white" : "text-navy-300 hover:bg-white/10 hover:text-white"}`}
               >
                 {muted ? (
@@ -250,10 +263,10 @@ export function ReceptionistWidget() {
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14" /></svg>
                 )}
               </button>
-              <button onClick={restart} aria-label="Restart conversation" className="rounded-lg p-2 text-navy-300 hover:bg-white/10 hover:text-white">
+              <button onClick={restart} aria-label={t("rw.restart")} className="rounded-lg p-2 text-navy-300 hover:bg-white/10 hover:text-white">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" /></svg>
               </button>
-              <button onClick={close} aria-label="Close receptionist" className="rounded-lg p-2 text-navy-300 hover:bg-white/10 hover:text-white">
+              <button onClick={close} aria-label={t("rw.close")} className="rounded-lg p-2 text-navy-300 hover:bg-white/10 hover:text-white">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
               </button>
             </div>
@@ -261,7 +274,7 @@ export function ReceptionistWidget() {
 
           {/* Disclaimer */}
           <div className="border-b border-navy-100 bg-amber-50 px-4 py-2 text-[11px] leading-snug text-amber-900">
-            I&apos;m a virtual assistant for appointments &amp; clinic info — not a medical professional. Emergencies: call <strong>112</strong>.
+            {t("rw.disclaimer", { num: "112" })}
           </div>
 
           {/* Messages */}
@@ -284,7 +297,7 @@ export function ReceptionistWidget() {
             {state === "loading" && (
               <div className="flex justify-start">
                 <div className="rounded-2xl rounded-bl-md bg-navy-50 px-4 py-3 text-sm text-navy-500">
-                  <span className="inline-block animate-pulse">typing…</span>
+                  <span className="inline-block animate-pulse">{t("rw.typing")}</span>
                 </div>
               </div>
             )}
@@ -296,13 +309,13 @@ export function ReceptionistWidget() {
             <button
               onClick={startListening}
               disabled={!sttSupported || state === "listening"}
-              aria-label="Voice input (browser speech recognition)"
+              aria-label={t("rw.micAria")}
               className={`rounded-lg p-2 transition-colors ${
                 state === "listening"
                   ? "bg-amber-100 text-amber-700"
                   : "text-navy-500 hover:bg-navy-50 disabled:opacity-40"
               }`}
-              title={sttSupported ? "Speak" : "Voice input not supported in this browser"}
+              title={sttSupported ? t("rw.micTitle") : t("rw.micUnsupported")}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 19v3" />
@@ -312,19 +325,19 @@ export function ReceptionistWidget() {
               onClick={() => setCaptions((c) => !c)}
               aria-pressed={captions}
               className={`rounded-lg p-2 transition-colors ${captions ? "bg-teal-50 text-teal-700" : "text-navy-400 hover:bg-navy-50"}`}
-              title="Toggle captions"
+              title={t("rw.captions")}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <rect x="2" y="5" width="20" height="14" rx="2" /><path d="M10 12h.01M14 12h.01M7 15h10" strokeLinecap="round" />
               </svg>
             </button>
             {!voiceSupported && (
-              <span className="ml-auto text-[10px] text-navy-400">Voice unavailable — text chat works fully</span>
+              <span className="ml-auto text-[10px] text-navy-400">{t("rw.voiceUnavail")}</span>
             )}
             {capabilities && (
               <span className="ml-auto text-[10px] text-navy-400">
                 {capabilities.provider}
-                {!capabilities.lipSync ? " · lip-sync via provider" : ""}
+                {!capabilities.lipSync ? t("rw.lipSyncNote") : ""}
               </span>
             )}
           </div>
@@ -337,20 +350,20 @@ export function ReceptionistWidget() {
               void send(input);
             }}
           >
-            <label htmlFor="receptionist-input" className="sr-only">Message the receptionist</label>
+            <label htmlFor="receptionist-input" className="sr-only">{t("rw.inputLabel")}</label>
             <input
               id="receptionist-input"
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message…"
+              placeholder={t("rw.placeholder")}
               className="min-w-0 flex-1 rounded-xl border border-navy-200 px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-200"
               autoComplete="off"
             />
             <button
               type="submit"
               disabled={!input.trim()}
-              aria-label="Send message"
+              aria-label={t("rw.send")}
               className="rounded-xl bg-teal-600 p-2.5 text-white transition-colors hover:bg-teal-700 disabled:opacity-40"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

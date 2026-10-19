@@ -44,7 +44,7 @@ The integration layer is `src/lib/avatar.ts` (`AvatarProvider` abstraction) — 
 
 - [ ] Confirm the provider's data-retention policy for patient audio/video
 - [ ] Confirm commercial website embedding is permitted on your plan
-- [ ] Confirm supported languages (English required; Hindi/Telugu optional)
+- [ ] Confirm supported languages (English required; Hindi optional)
 - [ ] Add the provider's privacy notice link to the receptionist panel
 - [ ] Verify the provider never receives the booking reference or mobile number in voice prompts
 

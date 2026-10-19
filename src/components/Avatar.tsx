@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "./LanguageProvider";
+
 /**
  * Animated virtual-receptionist avatar.
  *
@@ -16,13 +18,14 @@ export default function Avatar({
   speaking?: boolean;
   size?: number;
 }) {
+  const { t } = useLanguage();
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 200 200"
       role="img"
-      aria-label="Virtual receptionist avatar"
+      aria-label={t("rw.avatarAria")}
       className={speaking ? "avatar-speaking" : ""}
     >
       <defs>

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import SkipLink from "@/components/SkipLink";
 import Footer from "@/components/Footer";
 import { DemoModeBanner } from "@/components/DemoModeBanner";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { ReceptionistWidget } from "@/components/ReceptionistWidget";
 import { ClinicConfigProvider } from "@/components/ClinicConfigProvider";
-import { getConfig } from "@/lib/config";
+import { getConfig, isConfigured } from "@/lib/config";
 import { initDb } from "@/lib/db";
 
 export const metadata: Metadata = {
@@ -49,13 +50,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ClinicConfigProvider config={publicConfig}>
           <LanguageProvider>
-            <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-teal-600 focus:text-white focus:px-4 focus:py-2 focus:m-2">
-              Skip to main content
-            </a>
+            <SkipLink />
             <DemoModeBanner />
             <Navbar />
             <main id="main">{children}</main>
-            <Footer />
+            <Footer
+              doctorName={cfg.doctor.name}
+              clinicName={isConfigured(cfg.clinic.name) ? cfg.clinic.name : ""}
+              emergencyNumber={cfg.clinic.emergencyNumber || "112"}
+            />
             <ReceptionistWidget />
           </LanguageProvider>
         </ClinicConfigProvider>

@@ -11,8 +11,14 @@
  */
 import { getConfig, isConfigured, integrationStatus } from "./config";
 import { getDayAvailability, getAvailabilityRange, createBooking, SlotUnavailableError, type ConsultMode, type DayAvailability } from "./booking";
-import { addDays, displayDate, displayTime, todayKey } from "./time";
+import { displayDateL, displayTimeL } from "./time";
+import { translate, LANG_LOCALES, type Lang, type TranslationKey } from "./i18n";
 import { getDb } from "./db";
+
+const L = (lang: Lang, key: TranslationKey, vars?: Record<string, string | number>): string =>
+  translate(lang, key, vars);
+const fmtDate = (dateKey: string, lang: Lang): string => displayDateL(dateKey, LANG_LOCALES[lang]);
+const fmtTime = (t: string, lang: Lang): string => displayTimeL(t, LANG_LOCALES[lang]);
 
 export type ChatState =
   | "idle"
@@ -77,15 +83,15 @@ function saveContext(sessionId: string, ctx: ChatContext): void {
 
 /* --------------------------- Safety & boundaries --------------------------- */
 
-const MEDICAL_ADVICE_RE = /\b(diagnos|prescribe|prescription|symptom|treatment for|cure|dose|dosage|medicine|tablet|injection|sick|disease|disease|pain in|fever|cough|ache)\b/i;
-const EMERGENCY_RE = /\b(emergency|ambulance|accident|chest pain|heart attack|stroke|unconscious|severe bleeding)\b/i;
+const MEDICAL_ADVICE_RE = /\b(diagnos|prescribe|prescription|symptom|treatment for|cure|dose|dosage|medicine|tablet|injection|sick|disease|pain in|fever|cough|ache)\b|दवा|इलाज|बीमारी|लक्षण|दर्द|बुखार|निदान|प्रिस्क्रिप्शन|दस्ताने/i;
+const EMERGENCY_RE = /\b(emergency|ambulance|accident|chest pain|heart attack|stroke|unconscious|severe bleeding)\b|आपातकाल|इमरजेंसी|एम्बुलेंस|दुर्घटना|हार्ट अटैक|बेहोश/i;
 
-function safetyReply(m: string): string | null {
+function safetyReply(m: string, lang: Lang): string | null {
   if (EMERGENCY_RE.test(m)) {
-    return "If this is a medical emergency, please call 112 (India's emergency number) or visit the nearest hospital immediately — don't wait for a booking. I can only help with appointments and clinic information.";
+    return L(lang, "chat.emergency");
   }
   if (MEDICAL_ADVICE_RE.test(m)) {
-    return "I'm the clinic's virtual receptionist — I can help with appointments, timings, fees and clinic information, but I'm not a medical professional and can't give health advice. Dr. XYZ will address medical questions during your consultation. Would you like to book an appointment?";
+    return L(lang, "chat.medical", { doctor: cfg().doctor.name });
   }
   return null;
 }
@@ -98,18 +104,18 @@ interface Intent {
 }
 
 const INTENTS: Intent[] = [
-  { name: "greeting", patterns: [/^(hi|hello|hey|good (morning|afternoon|evening)|namaste|namaskar|vanakam)\b/i, /\b(mr|ms|dr)\b.*\breceptionist\b/i] },
-  { name: "book", patterns: [/\b(book|appointment|schedule|reserve|fix.*(slot|appointment)|consult)\b/i] },
-  { name: "services", patterns: [/\b(services?|treat|speciali[sz]|what do you|offer|provide)\b/i] },
-  { name: "fees", patterns: [/\b(fee|fees|cost|charge|price|₹|rupees?|rate)\b/i] },
-  { name: "timings", patterns: [/\b(time|hour|open|close|when.*(open|available)|working)\b/i] },
-  { name: "location", patterns: [/\b(address|location|where|direction|map|reach|area|road)\b/i] },
-  { name: "contact", patterns: [/\b(contact|phone|call|number|email|mail)\b/i] },
-  { name: "modes", patterns: [/\b(online|in[- ]person|video|virtual|clinic visit|mode)\b/i] },
-  { name: "cancellation", patterns: [/\b(cancel|reschedule|postpone|refund|policy)\b/i] },
-  { name: "qualifications", patterns: [/\b(qualification|experience|degree|md|mbbs|specialist|registration)\b/i] },
-  { name: "status", patterns: [/\b(my appointment|appointment status|reference|booking status)\b/i] },
-  { name: "thanks", patterns: [/\b(thanks|thank you|thx|great|ok|okay|bye|goodbye)\b/i] },
+  { name: "greeting", patterns: [/^(hi|hello|hey|good (morning|afternoon|evening)|namaste|namaskar|vanakam)\b/i, /^(नमस्ते|नमस्कार|हैलो|हाय|सुप्रभात)/i, /\b(mr|ms|dr)\b.*\breceptionist\b/i] },
+  { name: "book", patterns: [/\b(book|appointment|schedule|reserve|fix.*(slot|appointment)|consult)\b/i, /बुक|अपॉइंटमेंट|एपॉइंटमेंट|नियुक्ति/] },
+  { name: "services", patterns: [/\b(services?|treat|speciali[sz]|what do you|offer|provide)\b/i, /सेवा|सेवाएँ|सेवाएं/] },
+  { name: "fees", patterns: [/\b(fee|fees|cost|charge|price|₹|rupees?|rate)\b/i, /फीस|शुल्क|कीमत|पैसे/] },
+  { name: "timings", patterns: [/\b(time|hour|open|close|when.*(open|available)|working)\b/i, /समय|खुलने|बंद होने|कार्य समय/] },
+  { name: "location", patterns: [/\b(address|location|where|direction|map|reach|area|road)\b/i, /पता|कहाँ|कहा है|लोकेशन|रास्ता|नक्शा/] },
+  { name: "contact", patterns: [/\b(contact|phone|call|number|email|mail)\b/i, /फोन|नंबर|ईमेल|संपर्क/] },
+  { name: "modes", patterns: [/\b(online|in[- ]person|video|virtual|clinic visit|mode)\b/i, /ऑनलाइन|वीडियो|व्यक्तिगत|क्लिनिक में/] },
+  { name: "cancellation", patterns: [/\b(cancel|reschedule|postpone|refund|policy)\b/i, /रद्द|कैंसिल|स्थगित|वापसी|नीति/] },
+  { name: "qualifications", patterns: [/\b(qualification|experience|degree|md|mbbs|specialist|registration)\b/i, /योग्यता|डिग्री|अनुभव|पंजीकरण/] },
+  { name: "status", patterns: [/\b(my appointment|appointment status|reference|booking status)\b/i, /मेरी अपॉइंटमेंट|संदर्भ|स्टेटस/] },
+  { name: "thanks", patterns: [/\b(thanks|thank you|thx|great|ok|okay|bye|goodbye)\b/i, /धन्यवाद|शुक्रिया|बाय/] },
 ];
 
 function detectIntent(text: string): string {
@@ -134,28 +140,28 @@ function clinicLine(): string {
   return parts.join(" — ");
 }
 
-function timingsText(): string {
+function timingsText(lang: Lang): string {
   const c = cfg();
   if (!isConfigured(c.booking.workingHours)) {
-    return "Working hours haven't been published yet — please call the clinic or ask me to book and I'll show live available slots.";
+    return L(lang, "chat.timingsNone");
   }
   const hours = typeof c.booking.workingHours === "string" ? c.booking.workingHours : `${c.booking.workingHours.start}–${c.booking.workingHours.end}`;
   const days = Array.isArray(c.booking.workingDays) ? c.booking.workingDays.join(", ") : String(c.booking.workingDays);
-  return `The clinic is open on ${days}, ${hours} (Asia/Kolkata).`;
+  return L(lang, "chat.timings", { days, hours });
 }
 
-function feesText(): string {
+function feesText(lang: Lang): string {
   const c = cfg();
   const fee = c.booking.consultationFeeInr;
   const feeTxt = typeof fee === "number" ? `₹${fee}` : fee;
-  let s = `The consultation fee is ${feeTxt}.`;
-  if (c.booking.onlineFeeInr) s += ` Online consultations: ${typeof c.booking.onlineFeeInr === "number" ? `₹${c.booking.onlineFeeInr}` : c.booking.onlineFeeInr}.`;
+  let s = L(lang, "chat.fees", { fee: feeTxt });
+  if (c.booking.onlineFeeInr) s += L(lang, "chat.feesOnline", { fee: typeof c.booking.onlineFeeInr === "number" ? `₹${c.booking.onlineFeeInr}` : c.booking.onlineFeeInr });
   return s;
 }
 
-function servicesText(): string {
+function servicesText(lang: Lang): string {
   const c = cfg();
-  return c.services.map((s) => `• ${s.name} (${s.durationMinutes} min)`).join("\n");
+  return c.services.map((s) => L(lang, "chat.serviceItem", { name: s.name, min: s.durationMinutes })).join("\n");
 }
 
 function faqMatch(text: string): string | null {
@@ -172,12 +178,15 @@ function faqMatch(text: string): string | null {
   return null;
 }
 
-function intro(): string {
-  const a = cfg().avatar;
-  return a.introduction;
+function intro(lang: Lang = "en"): string {
+  const c = cfg();
+  // English: the clinic-verified introduction from config/clinic.json.
+  // Other languages: the reviewed translation of the standard introduction.
+  if (lang === "en" && isConfigured(c.avatar.introduction)) return c.avatar.introduction;
+  return L(lang, "chat.intro", { doctor: c.doctor.name });
 }
 
-async function presentSlots(ctx: ChatContext): Promise<AssistantReply> {
+async function presentSlots(ctx: ChatContext, lang: Lang): Promise<AssistantReply> {
   const mode = ctx.mode ?? "in_person";
   const days = await getAvailabilityRange(7, mode);
   const cards: AssistantReply["cards"] = [];
@@ -185,37 +194,35 @@ async function presentSlots(ctx: ChatContext): Promise<AssistantReply> {
     const free = d.slots.filter((s) => s.available).slice(0, 4);
     if (free.length) {
       cards.push({
-        title: displayDate(d.date),
-        body: free.map((s) => displayTime(s.time)).join(", "),
-        action: { label: `Pick ${displayDate(d.date)}`, payload: `date:${d.date}` },
+        title: fmtDate(d.date, lang),
+        body: free.map((s) => fmtTime(s.time, lang)).join(", "),
+        action: { label: L(lang, "chat.pickDate", { date: fmtDate(d.date, lang) }), payload: `date:${d.date}` },
       });
     }
   }
-  const text = cards.length
-    ? "Here are the next available slots (all times Asia/Kolkata):"
-    : "I couldn't find open slots in the next week. Please try a different consultation mode or call the clinic.";
+  const text = cards.length ? L(lang, "chat.slotsIntro") : L(lang, "chat.slotsNone");
   return { text, cards, state: ctx.state };
 }
 
 /* --------------------------- Main handler --------------------------- */
 
-export async function handleMessage(sessionId: string, raw: string): Promise<AssistantReply> {
+export async function handleMessage(sessionId: string, raw: string, lang: Lang = "en"): Promise<AssistantReply> {
   const ctx = loadContext(sessionId);
   const text = raw.trim();
 
   // 1) Safety boundaries always win.
-  const safety = safetyReply(text);
+  const safety = safetyReply(text, lang);
   if (safety) return { text: safety, state: ctx.state };
 
   // 2) In-booking flows, interpret answers first.
   switch (ctx.state) {
     case "collect_mode": {
-      const mode = /online|video|virtual/i.test(text) ? "online" : /person|clinic|visit/i.test(text) ? "in_person" : undefined;
-      if (!mode) return { text: "Please choose: **In-person** (at the clinic) or **Online** (video/phone).", state: ctx.state };
+      const mode = /online|video|virtual|ऑनलाइन|वीडियो/i.test(text) ? "online" : /person|clinic|visit|व्यक्तिगत|क्लिनिक/i.test(text) ? "in_person" : undefined;
+      if (!mode) return { text: L(lang, "chat.chooseMode"), state: ctx.state };
       ctx.mode = mode;
       ctx.state = "collect_date";
       saveContext(sessionId, ctx);
-      return presentSlots({ ...ctx, state: "collect_date" });
+      return presentSlots({ ...ctx, state: "collect_date" }, lang);
     }
     case "collect_date": {
       const m = text.match(/(\d{4}-\d{2}-\d{2})/) ?? text.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
@@ -223,7 +230,7 @@ export async function handleMessage(sessionId: string, raw: string): Promise<Ass
         // Allow picking via card payload "date:YYYY-MM-DD"
         const pm = text.match(/date:(\d{4}-\d{2}-\d{2})/);
         if (pm) { ctx.date = pm[1]; }
-        else return { text: "Please tell me a date (e.g. 25-10-2026) or pick one from the cards above.", state: ctx.state };
+        else return { text: L(lang, "chat.dateAsk"), state: ctx.state };
       } else if (m[1] && m[1].includes("-")) {
         ctx.date = m[1];
       } else {
@@ -235,19 +242,26 @@ export async function handleMessage(sessionId: string, raw: string): Promise<Ass
       if (!day.open) {
         ctx.state = "collect_date";
         saveContext(sessionId, ctx);
-        return { text: "The clinic is closed that day. Try another date from the list.", state: ctx.state };
+        return { text: L(lang, "chat.closedDay"), state: ctx.state };
       }
       const free = day.slots.filter((s) => s.available);
       if (!free.length) {
         ctx.state = "collect_date";
         saveContext(sessionId, ctx);
-        return { text: `No free slots on ${displayDate(ctx.date)}. Try another date:`, cards: [{ title: "Other days", body: "Ask me for available dates", action: { label: "Show next 7 days", payload: "show:slots" } }], state: ctx.state };
+        return {
+          text: L(lang, "chat.noFreeSlots", { date: fmtDate(ctx.date, lang) }),
+          cards: [{ title: L(lang, "chat.otherDays"), body: L(lang, "chat.askAvailableDates"), action: { label: L(lang, "chat.showNext7"), payload: "show:slots" } }],
+          state: ctx.state,
+        };
       }
       ctx.slots = day.slots;
       ctx.state = "collect_time";
       saveContext(sessionId, ctx);
       return {
-        text: `Available times on ${displayDate(ctx.date)} (Asia/Kolkata): ${free.slice(0, 8).map((s) => displayTime(s.time)).join(", ")}. Please reply with your preferred time (e.g. "10:30 AM").`,
+        text: L(lang, "chat.timesOnDate", {
+          date: fmtDate(ctx.date, lang),
+          times: free.slice(0, 8).map((s) => fmtTime(s.time, lang)).join(", "),
+        }),
         state: ctx.state,
       };
     }
@@ -268,64 +282,63 @@ export async function handleMessage(sessionId: string, raw: string): Promise<Ass
       const fmt = (n: number) => {
         const h = Math.floor(n / 60);
         const mm = n % 60;
-        const ap = h >= 12 ? "PM" : "AM";
         const hh = h % 12 || 12;
         return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
       };
       const slot = ctx.slots?.find((s) => s.available && s.time === fmt(minutes));
       if (!slot) {
-        return { text: "That time isn't available. Choose one of the listed times, or say 'show other days'.", state: ctx.state };
+        return { text: L(lang, "chat.timeUnavailable"), state: ctx.state };
       }
       ctx.time = slot.time;
       ctx.state = "collect_name";
       saveContext(sessionId, ctx);
-      return { text: "Great. What is the patient's full name?", state: ctx.state };
+      return { text: L(lang, "chat.askName"), state: ctx.state };
     }
     case "collect_name": {
-      if (text.trim().length < 2) return { text: "Please provide the patient's full name.", state: ctx.state };
+      if (text.trim().length < 2) return { text: L(lang, "chat.nameErr"), state: ctx.state };
       ctx.patientName = text.trim().replace(/[<>&"']/g, "");
       ctx.state = "collect_mobile";
       saveContext(sessionId, ctx);
-      return { text: "And the patient's 10-digit Indian mobile number? (Used only for appointment updates.)", state: ctx.state };
+      return { text: L(lang, "chat.askMobile"), state: ctx.state };
     }
     case "collect_mobile": {
       const digits = text.replace(/\D/g, "").slice(-10);
       if (!/^[6-9]\d{9}$/.test(digits)) {
-        return { text: "Please enter a valid 10-digit Indian mobile number (starts with 6–9).", state: ctx.state };
+        return { text: L(lang, "chat.mobileErr"), state: ctx.state };
       }
       ctx.patientMobile = digits;
       ctx.state = "collect_email";
       saveContext(sessionId, ctx);
-      return { text: "Optional: an email address for the confirmation (or reply 'skip').", state: ctx.state };
+      return { text: L(lang, "chat.askEmail"), state: ctx.state };
     }
     case "collect_email": {
-      if (/^skip$/i.test(text.trim())) {
+      if (/^(skip|छोड़ें|छोड़ो)$/i.test(text.trim())) {
         ctx.patientEmail = undefined;
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim())) {
-        return { text: "That email doesn't look right — reply with a valid email or 'skip'.", state: ctx.state };
+        return { text: L(lang, "chat.emailErr"), state: ctx.state };
       } else {
         ctx.patientEmail = text.trim();
       }
       ctx.state = "collect_consent";
       saveContext(sessionId, ctx);
       return {
-        text: "May we send appointment reminders to this mobile number? (yes/no)",
+        text: L(lang, "chat.askConsent"),
         state: ctx.state,
       };
     }
     case "collect_consent": {
-      ctx.consentReminders = /^(y|yes|ok|sure|han|haan)/i.test(text.trim());
+      ctx.consentReminders = /^(y|yes|ok|sure|han|haan|हाँ|हा)/i.test(text.trim());
       ctx.state = "review";
       saveContext(sessionId, ctx);
-      return buildReview(ctx);
+      return buildReview(ctx, lang);
     }
     case "review": {
-      if (/^(no|cancel|change|edit|start over)/i.test(text.trim())) {
+      if (/^(no|cancel|change|edit|start over)|नहीं|रद्द/i.test(text.trim())) {
         saveContext(sessionId, { state: "idle" });
-        return { text: "No problem — booking cancelled. Tell me whenever you'd like to start again.", state: "idle" };
+        return { text: L(lang, "chat.reviewCancel"), state: "idle" };
       }
-      if (!/^yes|confirm|ok|book it|proceed/i.test(text.trim())) {
-        return { text: "Please reply **Yes** to confirm the booking, or **No** to start over.", state: ctx.state };
+      if (!/^yes|confirm|ok|book it|proceed|हाँ|हा/i.test(text.trim())) {
+        return { text: L(lang, "chat.reviewConfirmAsk"), state: ctx.state };
       }
       // 9) Confirm ONLY after the backend confirms success.
       try {
@@ -345,18 +358,30 @@ export async function handleMessage(sessionId: string, raw: string): Promise<Ass
         );
         saveContext(sessionId, { state: "done" });
         const c = cfg();
+        const joinInfo = appointment.online_link
+          ? L(lang, "chat.joinLink", { link: appointment.online_link })
+          : appointment.mode === "online"
+            ? L(lang, "chat.joinInstructions")
+            : L(lang, "chat.venue", { venue: clinicLine() });
         return {
-          text: `✅ Booking confirmed! Reference **${appointment.id}** — ${c.doctor.name}, ${displayDate(appointment.date)} at ${displayTime(appointment.time)} (${appointment.mode === "online" ? "online" : "in-person"}). ${appointment.online_link ? `Join here: ${appointment.online_link}` : appointment.mode === "online" ? "Joining instructions will be sent separately." : `Venue: ${clinicLine()}`} Reply "done" to finish.`,
+          text: L(lang, "chat.booked", {
+            ref: appointment.id,
+            doctor: c.doctor.name,
+            date: fmtDate(appointment.date, lang),
+            time: fmtTime(appointment.time, lang),
+            mode: appointment.mode === "online" ? L(lang, "chat.modeOnline") : L(lang, "chat.modeInperson"),
+            joinInfo,
+          }),
           state: "done",
           booking: { reference: appointment.id },
         };
       } catch (e) {
         if (e instanceof SlotUnavailableError) {
           saveContext(sessionId, { ...ctx, state: "collect_date" });
-          const alt = await presentSlots({ ...ctx, state: "collect_date" });
-          return { text: "Sorry — that slot was just taken by someone else. Here are current alternatives:", cards: alt.cards, state: "collect_date" };
+          const alt = await presentSlots({ ...ctx, state: "collect_date" }, lang);
+          return { text: L(lang, "chat.slotTaken"), cards: alt.cards, state: "collect_date" };
         }
-        return { text: "I couldn't complete the booking just now. Please try again shortly or call the clinic.", state: ctx.state };
+        return { text: L(lang, "chat.bookFailed"), state: ctx.state };
       }
     }
   }
@@ -365,102 +390,111 @@ export async function handleMessage(sessionId: string, raw: string): Promise<Ass
   const intent = detectIntent(text);
   switch (intent) {
     case "greeting":
-      return { text: intro(), state: "idle" };
+      return { text: intro(lang), state: "idle" };
     case "book": {
       const modes = cfg().booking.modes;
       const onlineAllowed = modes.includes("online") && integrationStatus("onlineConsult") !== "disabled";
-      const opts = onlineAllowed
-        ? "Would you like an **In-person** visit at the clinic or an **Online** consultation?"
-        : "We currently offer **in-person** consultations at the clinic. Shall we book one?";
+      const opts = onlineAllowed ? L(lang, "chat.bookOptsOnline") : L(lang, "chat.bookOptsInperson");
       const next: ChatContext = { state: "collect_mode", serviceId: cfg().services[0]?.id };
       saveContext(sessionId, next);
-      return { text: `I'd be happy to help you book with ${cfg().doctor.name}. ${opts}`, state: "collect_mode" };
+      return { text: L(lang, "chat.bookIntro", { doctor: cfg().doctor.name, opts }), state: "collect_mode" };
     }
     case "services":
-      return { text: `Services offered by ${cfg().doctor.name}:\n${servicesText()}`, state: "idle" };
+      return { text: `${L(lang, "chat.servicesList", { doctor: cfg().doctor.name })}\n${servicesText(lang)}`, state: "idle" };
     case "fees":
-      return { text: feesText(), state: "idle" };
+      return { text: feesText(lang), state: "idle" };
     case "timings":
-      return { text: timingsText(), state: "idle" };
+      return { text: timingsText(lang), state: "idle" };
     case "location":
       return {
         text: isConfigured(cfg().clinic.address)
-          ? `You'll find us at: ${clinicLine()}.`
-          : "The clinic address hasn't been published yet — please call the clinic for directions.",
+          ? L(lang, "chat.location", { line: clinicLine() })
+          : L(lang, "chat.locationTBP"),
         state: "idle",
       };
     case "contact":
       return {
-        text: `Phone: ${isConfigured(cfg().clinic.phone) ? cfg().clinic.phone : "[to be published]"} · Email: ${isConfigured(cfg().clinic.email) ? cfg().clinic.email : "[to be published]"}`,
+        text: L(lang, "chat.contact", {
+          phone: isConfigured(cfg().clinic.phone) ? cfg().clinic.phone : L(lang, "chat.tbp"),
+          email: isConfigured(cfg().clinic.email) ? cfg().clinic.email : L(lang, "chat.tbp"),
+        }),
         state: "idle",
       };
     case "modes": {
       const modes = cfg().booking.modes;
       const online = modes.includes("online") && integrationStatus("onlineConsult") !== "disabled";
       return {
-        text: `Consultation modes: **In-person** at the clinic${online ? " and **Online** (video/phone)" : ""}. Each consultation is ${cfg().booking.defaultDurationMinutes} minutes.`,
+        text: L(lang, "chat.modes", { online: online ? L(lang, "chat.modesOnline") : "", minutes: cfg().booking.defaultDurationMinutes }),
         state: "idle",
       };
     }
     case "cancellation":
       return {
-        text: `Cancellation & rescheduling: ${cfg().booking.reschedulePolicy} Cancellations within ${cfg().booking.cancellationPolicyHours} hours of the appointment may be charged. You can cancel or reschedule yourself with your appointment reference and registered mobile number on our website.`,
+        text: L(lang, "chat.cancellation", { policy: cfg().booking.reschedulePolicy, hours: cfg().booking.cancellationPolicyHours }),
         state: "idle",
       };
     case "qualifications": {
       const d = cfg().doctor;
-      const quals = isConfigured(d.qualifications) ? d.qualifications.join(", ") : "not yet published";
-      const reg = isConfigured(d.registration.registrationNumber) ? `Registration: ${d.registration.council} ${d.registration.registrationNumber}` : "Registration details to be published";
-      return { text: `${d.name} — Qualifications: ${quals}. ${reg}. Speciality: ${isConfigured(d.speciality) ? d.speciality : "to be published"}.`, state: "idle" };
+      const quals = isConfigured(d.qualifications) ? d.qualifications.join(", ") : L(lang, "chat.notPublished");
+      const reg = isConfigured(d.registration.registrationNumber)
+        ? L(lang, "chat.regOk", { council: d.registration.council, number: d.registration.registrationNumber })
+        : L(lang, "chat.regTBP");
+      return {
+        text: L(lang, "chat.qualifications", {
+          name: d.name,
+          quals,
+          reg,
+          speciality: isConfigured(d.speciality) ? d.speciality : L(lang, "chat.notPublished"),
+        }),
+        state: "idle",
+      };
     }
     case "status":
-      return { text: "To check an appointment, share the booking reference (e.g. APT-XXXX) and the registered mobile number on our Appointment Lookup page. For security, I can't look it up here.", state: "idle" };
+      return { text: L(lang, "chat.status"), state: "idle" };
     case "thanks":
-      return { text: "You're welcome! Is there anything else I can help with?", state: "idle" };
+      return { text: L(lang, "chat.thanks"), state: "idle" };
     default: {
       const faq = faqMatch(text);
       if (faq) return { text: faq, state: "idle" };
       return {
-        text: "I don't have a verified answer for that. Let me connect you with the clinic staff — you can also call the clinic directly. Meanwhile I can help with booking, timings, fees, location and policies.",
+        text: L(lang, "chat.unknown"),
         state: "idle",
         cards: [
-          { title: "Book an appointment", body: "Guided booking with live availability", action: { label: "Start booking", payload: "intent:book" } },
-          { title: "Talk to staff", body: "Call the clinic for anything medical or urgent", action: { label: "Call clinic", payload: "intent:contact" } },
+          { title: L(lang, "chat.cardBookTitle"), body: L(lang, "chat.cardBookBody"), action: { label: L(lang, "chat.cardBookAction"), payload: "intent:book" } },
+          { title: L(lang, "chat.cardStaffTitle"), body: L(lang, "chat.cardStaffBody"), action: { label: L(lang, "chat.cardStaffAction"), payload: "intent:contact" } },
         ],
       };
     }
   }
 }
 
-function buildReview(ctx: ChatContext): AssistantReply {
+function buildReview(ctx: ChatContext, lang: Lang): AssistantReply {
   const c = cfg();
   const service = c.services.find((s) => s.id === ctx.serviceId) ?? c.services[0];
   const fee = ctx.mode === "online" && c.booking.onlineFeeInr ? c.booking.onlineFeeInr : c.booking.consultationFeeInr;
   return {
-    text: [
-      "Please review your booking:",
-      `• Doctor: ${c.doctor.name}`,
-      `• Service: ${service?.name ?? ""}`,
-      `• Mode: ${ctx.mode === "online" ? "Online consultation" : "In-person consultation"}`,
-      `• Date & time: ${ctx.date ? displayDate(ctx.date) : ""} at ${ctx.time ? displayTime(ctx.time) : ""} (Asia/Kolkata)`,
-      `• Patient: ${ctx.patientName}`,
-      `• Mobile: ${ctx.patientMobile}`,
-      `• Fee: ${typeof fee === "number" ? `₹${fee}` : fee}`,
-      "Reply **Yes** to confirm or **No** to start over.",
-    ].join("\n"),
+    text: L(lang, "chat.review", {
+      doctor: c.doctor.name,
+      service: service?.name ?? "",
+      mode: ctx.mode === "online" ? L(lang, "chat.modeOnline") : L(lang, "chat.modeInperson"),
+      date: ctx.date ? fmtDate(ctx.date, lang) : "",
+      time: ctx.time ? fmtTime(ctx.time, lang) : "",
+      name: ctx.patientName ?? "",
+      mobile: ctx.patientMobile ?? "",
+      fee: typeof fee === "number" ? `₹${fee}` : fee,
+    }),
     state: "review",
   };
 }
 
 /** Card payloads sent by the UI (e.g. "date:2026-10-25", "intent:book"). */
-export async function handlePayload(sessionId: string, payload: string): Promise<AssistantReply> {
-  const ctx = loadContext(sessionId);
-  if (payload.startsWith("date:")) return handleMessage(sessionId, payload.slice(5));
-  if (payload === "intent:book") return handleMessage(sessionId, "book an appointment");
-  if (payload === "intent:contact") return handleMessage(sessionId, "contact number");
+export async function handlePayload(sessionId: string, payload: string, lang: Lang = "en"): Promise<AssistantReply> {
+  if (payload.startsWith("date:")) return handleMessage(sessionId, payload.slice(5), lang);
+  if (payload === "intent:book") return handleMessage(sessionId, "book an appointment", lang);
+  if (payload === "intent:contact") return handleMessage(sessionId, "contact number", lang);
   if (payload === "reset") {
     saveContext(sessionId, { state: "idle" });
-    return { text: intro(), state: "idle" };
+    return { text: intro(lang), state: "idle" };
   }
-  return handleMessage(sessionId, payload);
+  return handleMessage(sessionId, payload, lang);
 }
