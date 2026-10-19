@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --navy-950: #071224;
+  --navy-900: #0c1b33;
+  --navy-800: #16294a;
+  --teal-500: #269a90;
+  --teal-600: #1b7d76;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white text-navy-900 antialiased;
+}
+
+/* Premium serif display for headings */
+.font-display {
+  font-family: "Fraunces", Georgia, "Times New Roman", serif;
+}
+
+/* Accessible focus states everywhere */
+:focus-visible {
+  outline: 3px solid var(--teal-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Subtle card hover lift (respect reduced motion) */
+@media (prefers-reduced-motion: no-preference) {
+  .hover-lift {
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Avatar mouth + eye animations */
+.avatar-mouth {
+  transform-origin: center;
+  transform-box: fill-box;
+}
+.avatar-speaking .avatar-mouth {
+  animation: speak-mouth 0.28s ease-in-out infinite;
+}
+.avatar-eye {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: blink 4.6s ease-in-out infinite;
+}
+
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Chat widget */
+.chat-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: rgba(12, 27, 51, 0.18);
+  border-radius: 3px;
+}
+
+/* Demo mode banner pattern */
+.demo-stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(180, 83, 9, 0.12) 0 12px,
+    transparent 12px 24px
+  );
+}

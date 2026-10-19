@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Dr. XYZ Clinic configuration",
+  "type": "object",
+  "required": ["doctor", "clinic", "booking", "services", "faqs", "avatar"],
+  "properties": {
+    "doctor": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "title": { "type": "string" },
+        "speciality": { "type": "string", "description": "Verified speciality only" },
+        "qualifications": { "type": "array", "items": { "type": "string" } },
+        "registration": {
+          "type": "object",
+          "properties": {
+            "council": { "type": "string" },
+            "registrationNumber": { "type": "string" },
+            "verificationUrl": { "type": "string", "format": "uri" }
+          }
+        },
+        "yearsOfExperience": { "type": ["string", "number"] },
+        "about": { "type": "string" },
+        "photoAlt": { "type": "string" }
+      }
+    },
+    "clinic": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "tagline": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "pincode": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "mapsUrl": { "type": "string", "format": "uri" },
+        "emergencyNumber": { "type": "string", "default": "112" }
+      }
+    },
+    "booking": {
+      "type": "object",
+      "properties": {
+        "consultationFeeInr": { "type": ["number", "string"] },
+        "onlineFeeInr": { "type": ["number", "string"] },
+        "defaultDurationMinutes": { "type": "integer", "default": 20 },
+        "bufferMinutes": { "type": "integer", "default": 10 },
+        "slotStepMinutes": { "type": "integer", "default": 20 },
+        "maxAdvanceDays": { "type": "integer", "default": 30 },
+        "minAdvanceHours": { "type": "integer", "default": 2 },
+        "workingDays": { "description": "Array of ISO weekday numbers or descriptive string" },
+        "workingHours": { "type": ["string", "object"] },
+        "timezone": { "type": "string", "default": "Asia/Kolkata" },
+        "modes": { "type": "array", "items": { "enum": ["in_person", "online"] } },
+        "cancellationPolicyHours": { "type": "integer", "default": 12 }
+      }
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "durationMinutes": { "type": "integer" },
+          "description": { "type": "string" },
+          "modes": { "type": "array", "items": { "enum": ["in_person", "online"] } }
+        }
+      }
+    },
+    "faqs": { "type": "array", "items": { "type": "object", "properties": { "q": { "type": "string" }, "a": { "type": "string" } } } },
+    "avatar": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "introduction": { "type": "string" },
+        "disclaimer": { "type": "string" }
+      }
+    },
+    "languages": { "type": "array", "items": { "type": "string" }, "default": ["en"] },
+    "notifications": {
+      "type": "object",
+      "properties": {
+        "reminderLeadHours": { "type": "integer", "default": 24 },
+        "templates": { "type": "object" }
+      }
+    }
+  }
+}
