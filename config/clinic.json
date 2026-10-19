@@ -1,0 +1,96 @@
+{
+  "$schema": "../docs/clinic-config-schema.json",
+  "_comment": "Edit this file to update clinic details without changing source code. Placeholders marked [TO BE CONFIGURED] must be completed before launch (see docs/LAUNCH.md).",
+  "doctor": {
+    "name": "Dr. XYZ",
+    "title": "Medical Practitioner",
+    "speciality": "[TO BE CONFIGURED]",
+    "qualifications": ["[TO BE CONFIGURED]"],
+    "registration": {
+      "council": "[TO BE VERIFIED]",
+      "registrationNumber": "[TO BE VERIFIED]",
+      "verificationUrl": ""
+    },
+    "yearsOfExperience": "[TO BE CONFIGURED]",
+    "about": "[TO BE CONFIGURED]",
+    "photoAlt": "Portrait of Dr. XYZ"
+  },
+  "clinic": {
+    "name": "[TO BE CONFIGURED]",
+    "tagline": "Compassionate care, convenient booking.",
+    "address": "[TO BE CONFIGURED]",
+    "city": "[TO BE CONFIGURED]",
+    "state": "[TO BE CONFIGURED]",
+    "pincode": "",
+    "phone": "[TO BE CONFIGURED]",
+    "email": "[TO BE CONFIGURED]",
+    "mapsUrl": "",
+    "emergencyNumber": "112"
+  },
+  "booking": {
+    "consultationFeeInr": "[TO BE CONFIGURED]",
+    "onlineFeeInr": "[TO BE CONFIGURED]",
+    "defaultDurationMinutes": 20,
+    "bufferMinutes": 10,
+    "slotStepMinutes": 20,
+    "maxAdvanceDays": 30,
+    "minAdvanceHours": 2,
+    "workingDays": "[TO BE CONFIGURED]",
+    "workingHours": "[TO BE CONFIGURED]",
+    "timezone": "Asia/Kolkata",
+    "modes": ["in_person", "online"],
+    "cancellationPolicyHours": 12,
+    "reschedulePolicy": "Free rescheduling up to 6 hours before the appointment. Please call the clinic for urgent changes."
+  },
+  "services": [
+    {
+      "id": "gp-consult",
+      "name": "General Consultation",
+      "durationMinutes": 20,
+      "description": "[TO BE CONFIGURED]",
+      "modes": ["in_person", "online"]
+    },
+    {
+      "id": "follow-up",
+      "name": "Follow-up Consultation",
+      "durationMinutes": 15,
+      "description": "[TO BE CONFIGURED]",
+      "modes": ["in_person", "online"]
+    }
+  ],
+  "faqs": [
+    { "q": "What are the clinic's working hours?", "a": "[TO BE CONFIGURED — see Schedule Management in the admin dashboard]" },
+    { "q": "What is the consultation fee?", "a": "[TO BE CONFIGURED]" },
+    { "q": "How do I cancel or reschedule?", "a": "You can cancel or reschedule online using your appointment reference and registered mobile number, or by calling the clinic." },
+    { "q": "Do you offer online consultations?", "a": "[TO BE CONFIGURED]" },
+    { "q": "What should I bring to my visit?", "a": "Please bring a photo ID, your mobile number used at booking, and any relevant past prescriptions." }
+  ],
+  "avatar": {
+    "name": "Aarav",
+    "role": "Virtual Receptionist",
+    "introduction": "Hello! Welcome to Dr. XYZ's clinic. I'm the virtual receptionist. I can help you explore the clinic's services, check appointment availability, and book an in-person or online consultation. How may I help you today?",
+    "disclaimer": "I'm a virtual assistant for appointments and clinic information — I can't provide medical advice or emergencies help. For medical emergencies in India, call 112 immediately."
+  },
+  "languages": ["en", "hi"],
+  "notifications": {
+    "reminderLeadHours": 24,
+    "templates": {
+      "bookingConfirmed": {
+        "subject": "Appointment confirmed — {ref}",
+        "body": "Dear {patientName}, your appointment {ref} with Dr. XYZ is confirmed for {date} at {time} ({modeLabel}). Consultation fee: {fee}. To reschedule or cancel, use your appointment reference at our website or call the clinic."
+      },
+      "bookingCancelled": {
+        "subject": "Appointment cancelled — {ref}",
+        "body": "Dear {patientName}, your appointment {ref} scheduled for {date} at {time} has been cancelled. To book again, visit our website or call the clinic."
+      },
+      "reminder": {
+        "subject": "Appointment reminder — {ref}",
+        "body": "Reminder: your appointment {ref} with Dr. XYZ is on {date} at {time} ({modeLabel}). Please arrive 5 minutes early. To reschedule, use your appointment reference."
+      },
+      "syncAlert": {
+        "subject": "Clinic system alert: appointment sync issue",
+        "body": "Synchronization issue for appointment {ref}: {message}. Please review in the admin dashboard."
+      }
+    }
+  }
+}
