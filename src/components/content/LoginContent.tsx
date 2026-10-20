@@ -57,9 +57,9 @@ export default function LoginContent() {
                 Continue with Google
               </a>
             ) : (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                Google sign-in not yet configured — use demo login below. Admin: set GOOGLE_CLIENT_ID / SECRET / REDIRECT_URI in .env
-                {googleError && <span className="block mt-1 text-amber-600">{googleError}</span>}
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
+                Google sign-in not yet configured — use demo login below.
+                <span className="block mt-1 text-amber-600">Admin: set GOOGLE_CLIENT_ID / SECRET / REDIRECT_URI in .env to enable Google.</span>
               </div>
             )}
 
