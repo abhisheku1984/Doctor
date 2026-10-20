@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 export default function AdminAnalyticsPage() {
   const [dashboard, setDashboard] = useState<any>(null);
   const [events, setEvents] = useState<any[]>([]);
+  const [visitors, setVisitors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,6 +18,11 @@ export default function AdminAnalyticsPage() {
       if (res2.ok) {
         const data2 = await res2.json();
         setEvents(data2.events ?? []);
+      }
+      const res3 = await fetch("/api/analytics?view=visitors");
+      if (res3.ok) {
+        const data3 = await res3.json();
+        setVisitors(data3.visitors ?? []);
       }
       setLoading(false);
     };
@@ -76,6 +82,38 @@ export default function AdminAnalyticsPage() {
           </div>
         </div>
       )}
+
+      <div className="rounded-2xl border border-navy-100 bg-white p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="font-semibold text-navy-900">Verified visitors</h3>
+            <p className="mt-1 text-xs text-navy-500">Only people who signed in, verified their mobile, and agreed to identified visit analytics appear here.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-800">{visitors.length} identified</span>
+            <a href="/api/analytics?view=visitors_export" className="rounded-lg border border-navy-200 px-3 py-1.5 text-xs font-semibold text-navy-700 hover:bg-navy-50">Export list</a>
+          </div>
+        </div>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="border-b bg-navy-50 text-left text-xs uppercase text-navy-500">
+              <th className="px-3 py-2">Visitor</th><th className="px-3 py-2">Mobile</th><th className="px-3 py-2">First seen</th><th className="px-3 py-2">Last seen / page</th><th className="px-3 py-2">Views</th>
+            </tr></thead>
+            <tbody>
+              {visitors.map((v) => (
+                <tr key={v.user_id} className="border-b border-navy-50">
+                  <td className="px-3 py-2"><p className="font-medium">{v.name}</p><p className="text-xs text-navy-400">{v.email || "Phone sign-in"}</p></td>
+                  <td className="px-3 py-2">{v.mobile ? `+91 ${v.mobile}` : "—"}</td>
+                  <td className="px-3 py-2 text-xs">{new Date(v.first_seen).toLocaleString()}</td>
+                  <td className="px-3 py-2 text-xs"><p>{new Date(v.last_seen).toLocaleString()}</p><p className="text-navy-400">{v.last_page || "—"}</p></td>
+                  <td className="px-3 py-2">{v.page_views}</td>
+                </tr>
+              ))}
+              {visitors.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-navy-400">No verified page visits recorded yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div className="rounded-2xl border border-navy-100 bg-white p-6">
         <h3 className="font-semibold text-navy-900">Recent Events</h3>

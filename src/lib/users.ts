@@ -201,3 +201,35 @@ export function verifyUserMobile(userId: string, mobile: string): User {
     .run(mobile, new Date().toISOString(), userId);
   return getUserById(userId)!;
 }
+
+
+/** Find or provision a patient after successful phone-only OTP authentication. */
+export function findOrCreatePhoneUser(mobile: string, name: string): User {
+  let user = getUserByMobile(mobile);
+  if (user) {
+    if (user.role !== "patient") {
+      throw new Error("Staff accounts must sign in with Google or the admin portal.");
+    }
+    const now = new Date().toISOString();
+    getDb().prepare(`UPDATE users SET mobile_verified = 1, status = 'active', name = CASE WHEN name = '' THEN ? ELSE name END,
+      last_login_at = ?, updated_at = ? WHERE id = ?`).run(name, now, now, user.id);
+    return getUserById(user.id)!;
+  }
+  const safeName = name.trim().replace(/[<>"']/g, "").slice(0, 120);
+  const now = new Date().toISOString();
+  const created = createUser({
+    email: `phone-${mobile}@mobile.local`,
+    name: safeName || `Patient ${mobile.slice(-4)}`,
+    role: "patient",
+    mobile,
+    mobile_verified: true,
+    status: "active",
+  });
+  getDb().prepare("UPDATE users SET consent_given = 1, consent_at = ?, last_login_at = ? WHERE id = ?").run(now, now, created.id);
+  return getUserById(created.id)!;
+}
+
+export function recordAnalyticsConsent(userId: string): void {
+  const now = new Date().toISOString();
+  getDb().prepare("UPDATE users SET consent_given = 1, consent_at = ?, updated_at = ? WHERE id = ?").run(now, now, userId);
+}

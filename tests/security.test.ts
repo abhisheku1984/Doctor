@@ -10,6 +10,9 @@ import assert from "node:assert/strict";
 import { setupTestDb } from "./helpers";
 import { hashPassword, verifyPassword, createSessionValue, createSessionCookie, readSession } from "../src/lib/auth";
 import { requireAdmin } from "../src/lib/admin-guard";
+import { consumeOtpRequestLimit } from "../src/lib/auth";
+import { findOrCreatePhoneUser, recordAnalyticsConsent } from "../src/lib/users";
+import { getIdentifiedVisitors, trackEvent } from "../src/lib/analytics";
 
 before(() => setupTestDb());
 
@@ -57,4 +60,73 @@ test("patient lookup requires both reference and mobile", async () => {
   // The API layer enforces this; test the service function directly.
   const { findAppointment } = await import("../src/lib/booking");
   assert.equal(findAppointment("APT-NOPE", "9999999999"), null);
+});
+
+
+test("OTP send limits are persistent per identifier", () => {
+  const key = `test-rate-${Date.now()}`;
+  assert.equal(consumeOtpRequestLimit(key, 3, 10), true);
+  assert.equal(consumeOtpRequestLimit(key, 3, 10), true);
+  assert.equal(consumeOtpRequestLimit(key, 3, 10), true);
+  assert.equal(consumeOtpRequestLimit(key, 3, 10), false);
+});
+
+test("phone-verified visitor pageviews are identifiable in admin analytics", () => {
+  const mobile = "9876500001";
+  const user = findOrCreatePhoneUser(mobile, "Analytics Test Visitor");
+  recordAnalyticsConsent(user.id);
+  trackEvent({ event_type: "page_view", page: "/services", user_id: user.id, hospital_id: "hosp_default", session_id: "test-session" });
+  const visitor = getIdentifiedVisitors("hosp_default").find((v) => v.user_id === user.id);
+  assert.ok(visitor, "verified and consented page visitor should be listed");
+  assert.equal(visitor!.name, "Analytics Test Visitor");
+  assert.equal(visitor!.mobile, mobile);
+  assert.equal(visitor!.last_page, "/services");
+});
+
+test("phone OTP sign-in issues verified session and tracks identified pageviews", async () => {
+  const { POST: phoneLogin } = await import("../src/app/api/auth/phone-login/route");
+  const { POST: track } = await import("../src/app/api/analytics/route");
+  const { NextRequest } = await import("next/server");
+  const base = "http://localhost";
+  const mobile = "9876500002";
+  const send = await phoneLogin(new NextRequest(`${base}/api/auth/phone-login`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action: "send_otp", name: "OTP Test Visitor", mobile, consent: true }),
+  }));
+  assert.equal(send.status, 200);
+  const sent = await send.json();
+  assert.match(sent.demo_otp, /^\d{6}$/);
+
+  const verify = await phoneLogin(new NextRequest(`${base}/api/auth/phone-login`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action: "verify_otp", name: "OTP Test Visitor", mobile, otp: sent.demo_otp, consent: true, next: "/services" }),
+  }));
+  assert.equal(verify.status, 200);
+  const sessionCookie = verify.headers.get("set-cookie");
+  assert.ok(sessionCookie?.startsWith("hospital_session="));
+  const cookie = sessionCookie!.split(";")[0];
+
+  const pageView = await track(new NextRequest(`${base}/api/analytics`, {
+    method: "POST", headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify({ event_type: "page_view", page: "/services", session_id: "otp-test" }),
+  }));
+  assert.equal(pageView.status, 201);
+  const { getIdentifiedVisitors } = await import("../src/lib/analytics");
+  assert.ok(getIdentifiedVisitors("hosp_default").some((v) => v.mobile === mobile));
+});
+
+test("admin appointment export downloads a complete Excel-compatible CSV", async () => {
+  const { GET } = await import("../src/app/api/admin/appointments/route");
+  const { NextRequest } = await import("next/server");
+  const session = await createSessionValue("export-admin");
+  const response = await GET(new NextRequest("http://localhost/api/admin/appointments?export=csv", {
+    headers: { cookie: `drxyz_admin_session=${encodeURIComponent(session)}` },
+  }));
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") || "", /text\/csv/);
+  assert.match(response.headers.get("content-disposition") || "", /appointments-.*\.csv/);
+  const csv = await response.text();
+  assert.match(csv, /Patient Email/);
+  assert.match(csv, /Cancellation Reason/);
+  assert.match(csv, /Hospital ID/);
 });

@@ -9,6 +9,7 @@ export default function VerifyMobileContent() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [demoOtp, setDemoOtp] = useState<string | null>(null);
+  const [analyticsConsent, setAnalyticsConsent] = useState(false);
 
   const sendOtp = async () => {
     if (!/^[6-9]\d{9}$/.test(mobile)) { setError("Enter a valid 10-digit Indian mobile number."); return; }
@@ -16,7 +17,7 @@ export default function VerifyMobileContent() {
     try {
       const res = await fetch("/api/auth/verify-mobile", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send_otp", mobile }),
+        body: JSON.stringify({ action: "send_otp", mobile, consent: analyticsConsent }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -33,13 +34,14 @@ export default function VerifyMobileContent() {
     try {
       const res = await fetch("/api/auth/verify-mobile", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify_otp", mobile, otp }),
+        body: JSON.stringify({ action: "verify_otp", mobile, otp, consent: analyticsConsent }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setSuccess("Mobile verified! Redirecting…");
       const params = new URLSearchParams(window.location.search);
-      const next = params.get("next") || "/dashboard";
+      const requested = params.get("next") || "/dashboard";
+      const next = requested.startsWith("/") && !requested.startsWith("//") && !requested.includes("\\") ? requested : "/dashboard";
       setTimeout(() => { window.location.href = next; }, 1000);
     } catch (e) { setError((e as Error).message); }
     finally { setLoading(false); }
@@ -74,8 +76,12 @@ export default function VerifyMobileContent() {
             <p className="rounded-lg bg-navy-50 p-3 text-xs text-navy-500">
               By providing your mobile number, you consent to receive appointment confirmations, reminders, and updates via SMS. You can update your preferences in your profile.
             </p>
+            <label className="flex items-start gap-2 text-xs leading-relaxed text-navy-600">
+              <input type="checkbox" checked={analyticsConsent} onChange={(e) => setAnalyticsConsent(e.target.checked)} className="mt-0.5" />
+              <span>I agree that my verified account and website visits may be linked for visitor analytics. Read the <a href="/privacy" className="underline">Privacy Policy</a>.</span>
+            </label>
             <button
-              onClick={sendOtp} disabled={loading}
+              onClick={sendOtp} disabled={loading || !analyticsConsent}
               className="w-full rounded-xl bg-teal-600 py-3.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
             >
               {loading ? "Sending…" : "Send OTP"}

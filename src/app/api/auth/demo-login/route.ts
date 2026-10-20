@@ -12,6 +12,7 @@ const DEMO: Record<string, { email: string; name: string; role: string; mobile: 
 };
 
 export async function POST(req: NextRequest) {
+  if (String(process.env.NODE_ENV) === "production") return NextResponse.json({ error: "Demo login is disabled in production." }, { status: 404 });
   initDb();
   let body: { role?: string } = {};
   try { body = await req.json(); } catch {}
@@ -27,9 +28,9 @@ export async function POST(req: NextRequest) {
     createUser({ email: cfg.email, name: cfg.name, role: cfg.role as never, mobile: cfg.mobile, hospital_id: null, google_sub: null, avatar_url: null });
     user = d.prepare("SELECT * FROM users WHERE email = ?").get(cfg.email) as Record<string,string>;
   }
-  const token = await createUserSessionValue({ id: user!.id, email: user!.email, name: user!.name, role: user!.role, hospital_id: (user!.hospital_id as string) || null, avatar_url: user!.avatar_url as string });
+  const token = await createUserSessionValue({ id: user!.id, email: user!.email, name: user!.name, role: user!.role, hospital_id: (user!.hospital_id as string) || null, avatar_url: user!.avatar_url as string, mobile_verified: true, consent_given: true });
   const res = NextResponse.json({ ok: true, role: user!.role, next: role === "patient" ? "/dashboard" : "/admin" });
-  const isProd = process.env.NODE_ENV === "production";
+  const isProd = String(process.env.NODE_ENV) === "production";
   const cookieOpts = `Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000${isProd ? "; Secure" : ""}`;
   // user cookie + legacy admin cookie both understood by middleware
   res.headers.append("Set-Cookie", `hospital_session=${token}; ${cookieOpts}`);

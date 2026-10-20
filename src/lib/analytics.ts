@@ -171,3 +171,37 @@ export function generateCsvExport(filter: AnalyticsFilter = {}): string {
   }
   return lines.join("\n");
 }
+
+/** Verified, consented patients seen on tracked pages (admin only at the API layer). */
+export function getIdentifiedVisitors(hospitalId?: string): Array<{
+  user_id: string;
+  name: string;
+  email: string | null;
+  mobile: string | null;
+  first_seen: string;
+  last_seen: string;
+  page_views: number;
+  last_page: string | null;
+}> {
+  const db = getDb();
+  const hospitalClause = hospitalId ? "AND e.hospital_id = ?" : "";
+  const params = hospitalId ? [hospitalId] : [];
+  return db.prepare(`
+    SELECT e.user_id, u.name,
+      CASE WHEN u.email LIKE '%@mobile.local' THEN NULL ELSE u.email END AS email,
+      u.mobile, MIN(e.created_at) AS first_seen, MAX(e.created_at) AS last_seen,
+      COUNT(*) AS page_views,
+      (SELECT latest.page FROM analytics_events latest
+       WHERE latest.user_id = e.user_id AND latest.event_type = 'page_view'
+       ORDER BY latest.created_at DESC LIMIT 1) AS last_page
+    FROM analytics_events e
+    JOIN users u ON u.id = e.user_id
+    WHERE e.event_type = 'page_view' AND u.role = 'patient'
+      AND u.mobile_verified = 1 AND u.consent_given = 1 ${hospitalClause}
+    GROUP BY e.user_id, u.name, u.email, u.mobile
+    ORDER BY last_seen DESC LIMIT 500
+  `).all(...params as any[]) as unknown as Array<{
+    user_id: string; name: string; email: string | null; mobile: string | null;
+    first_seen: string; last_seen: string; page_views: number; last_page: string | null;
+  }>;
+}

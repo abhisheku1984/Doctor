@@ -14,7 +14,7 @@ import {
   verifySessionValue,
   type AdminSession,
 } from "./session";
-import { getDb } from "./db";
+import { getDb, transaction } from "./db";
 import { auditLog } from "./audit";
 
 export { createSessionCookie, clearSessionCookie, createSessionValue, verifySessionValue };
@@ -90,6 +90,29 @@ export function generateOtp(length = 6): string {
   let otp = "";
   for (let i = 0; i < length; i++) otp += crypto.randomInt(0, 10).toString();
   return otp;
+}
+
+
+/** Atomic persistent rate limit for OTP sends. */
+export function consumeOtpRequestLimit(identifier: string, maxRequests = 3, windowMinutes = 10): boolean {
+  const db = getDb();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const windowMs = windowMinutes * 60 * 1000;
+  return transaction(() => {
+    db.prepare("DELETE FROM otp_request_limits WHERE window_started_at < ?").run(new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString());
+    const row = db.prepare("SELECT window_started_at, request_count FROM otp_request_limits WHERE identifier = ?").get(identifier) as
+      | { window_started_at: string; request_count: number }
+      | undefined;
+    if (!row || now.getTime() - new Date(row.window_started_at).getTime() >= windowMs) {
+      db.prepare(`INSERT INTO otp_request_limits (identifier, window_started_at, request_count) VALUES (?, ?, 1)
+        ON CONFLICT(identifier) DO UPDATE SET window_started_at = excluded.window_started_at, request_count = 1`).run(identifier, nowIso);
+      return true;
+    }
+    if (row.request_count >= maxRequests) return false;
+    db.prepare("UPDATE otp_request_limits SET request_count = request_count + 1 WHERE identifier = ?").run(identifier);
+    return true;
+  });
 }
 
 export function createOtpRecord(identifier: string, purpose: string = "mobile_verify", ttlMinutes: number = 10): { id: string; otp: string } {

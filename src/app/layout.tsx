@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import { DemoModeBanner } from "@/components/DemoModeBanner";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { ReceptionistWidget } from "@/components/ReceptionistWidget";
+import VisitorTracker from "@/components/VisitorTracker";
 import { ClinicConfigProvider } from "@/components/ClinicConfigProvider";
 import { getConfig, isConfigured } from "@/lib/config";
 import { initDb } from "@/lib/db";
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <DemoModeBanner />
             <Navbar />
             <main id="main">{children}</main>
+            <VisitorTracker />
             <Footer
               doctorName={cfg.doctor.name}
               clinicName={isConfigured(cfg.clinic.name) ? cfg.clinic.name : "City Care Hospital"}

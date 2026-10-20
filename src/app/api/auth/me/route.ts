@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
         mobile_verified: !!ctx.user.mobile_verified,
         avatar_url: ctx.user.avatar_url,
         status: ctx.user.status,
+        consent_given: !!ctx.user.consent_given,
       },
     });
   }

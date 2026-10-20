@@ -3,6 +3,8 @@
  * Gallery items have metadata in SQLite, files in Google Drive (or local demo).
  */
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import { getDb } from "./db";
 import type { GalleryItem } from "./db";
 import { auditLog } from "./audit";
@@ -49,7 +51,7 @@ export function listGalleryItems(filter: {
   return getDb().prepare(`SELECT * FROM gallery_items ${where} ORDER BY sort_order ASC, created_at DESC LIMIT ? OFFSET ?`).all(...params as any[], limit, offset) as unknown as GalleryItem[];
 }
 
-export function listAllGalleryItems(filter: { hospital_id?: string; category?: string; status?: string; limit?: number } = {}): GalleryItem[] {
+export function listAllGalleryItems(filter: { hospital_id?: string; category?: string; status?: string; limit?: number; offset?: number } = {}): GalleryItem[] {
   const clauses: string[] = [];
   const params: unknown[] = [];
   if (filter.hospital_id) { clauses.push("hospital_id = ?"); params.push(filter.hospital_id); }
@@ -57,7 +59,8 @@ export function listAllGalleryItems(filter: { hospital_id?: string; category?: s
   if (filter.status) { clauses.push("status = ?"); params.push(filter.status); }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const limit = filter.limit ?? 200;
-  return getDb().prepare(`SELECT * FROM gallery_items ${where} ORDER BY sort_order ASC, created_at DESC LIMIT ?`).all(...params as any[], limit) as unknown as GalleryItem[];
+  const offset = filter.offset ?? 0;
+  return getDb().prepare(`SELECT * FROM gallery_items ${where} ORDER BY sort_order ASC, created_at DESC LIMIT ? OFFSET ?`).all(...params as any[], limit, offset) as unknown as GalleryItem[];
 }
 
 export function countGalleryItems(filter: { hospital_id?: string; category?: string; status?: string } = {}): number {
@@ -142,6 +145,13 @@ export function deleteGalleryItem(id: string, actor?: string): void {
   const item = getGalleryItem(id);
   if (!item) throw new Error("Gallery item not found.");
   getDb().prepare("DELETE FROM gallery_items WHERE id = ?").run(id);
+  if (item.local_path) {
+    const base = path.resolve(process.cwd(), "data", "gallery");
+    const filePath = path.resolve(process.cwd(), item.local_path);
+    if (filePath.startsWith(base + path.sep)) {
+      try { fs.unlinkSync(filePath); } catch { /* orphan cleanup can be retried */ }
+    }
+  }
   if (actor) auditLog(actor, "gallery.deleted", "gallery_item", id);
 }
 

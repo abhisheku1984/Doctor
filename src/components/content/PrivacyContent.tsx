@@ -25,6 +25,8 @@ export default function PrivacyContent({ clinicName }: { clinicName: string }) {
 
       <h2>{t("privacy.useTitle")}</h2>
       <p>{t("privacy.use")}</p>
+      <h2>Identified visitor analytics and sign-in</h2>
+      <p>Access to the website requires Google sign-in followed by mobile OTP verification, or mobile-number OTP sign-in. If you agree at sign-in, we link your account name, verified mobile number (and Google email where applicable), page paths, timestamps, and basic device category to record visits and improve site operations. We do not store full IP addresses for this analytics feature; the server stores a one-way hash. Admin users with the required role can view the identified visitor list. If you do not agree, do not continue to the website. You can contact the hospital to ask about access, correction, or deletion of your account and visit data.</p>
 
       <h2>{t("privacy.storeTitle")}</h2>
       <ul>

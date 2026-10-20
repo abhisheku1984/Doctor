@@ -19,8 +19,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!role || !["super_admin", "hospital_owner"].includes(role)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 403 });
   }
+  if (ctx.user && (ctx.user.status === "inactive" || ctx.user.status === "suspended" || !ctx.user.mobile_verified || !ctx.user.consent_given)) {
+    return NextResponse.json({ error: "Verified admin access required." }, { status: 403 });
+  }
   try {
+    const item = getGalleryItem(params.id);
+    if (!item || (ctx.user?.role === "hospital_owner" && ctx.user.hospital_id && item.hospital_id !== ctx.user.hospital_id)) {
+      return NextResponse.json({ error: "Not found." }, { status: 404 });
+    }
     const body = await req.json();
+    if (ctx.user?.role === "hospital_owner") delete body.hospital_id;
     const updated = updateGalleryItem(params.id, body, ctx.user?.email ?? ctx.session?.admin?.username ?? "admin");
     return NextResponse.json({ ok: true, item: updated });
   } catch (e) {
@@ -35,7 +43,14 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (!role || !["super_admin", "hospital_owner"].includes(role)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 403 });
   }
+  if (ctx.user && (ctx.user.status === "inactive" || ctx.user.status === "suspended" || !ctx.user.mobile_verified || !ctx.user.consent_given)) {
+    return NextResponse.json({ error: "Verified admin access required." }, { status: 403 });
+  }
   try {
+    const item = getGalleryItem(params.id);
+    if (!item || (ctx.user?.role === "hospital_owner" && ctx.user.hospital_id && item.hospital_id !== ctx.user.hospital_id)) {
+      return NextResponse.json({ error: "Not found." }, { status: 404 });
+    }
     deleteGalleryItem(params.id, ctx.user?.email ?? ctx.session?.admin?.username ?? "admin");
     return NextResponse.json({ ok: true });
   } catch (e) {

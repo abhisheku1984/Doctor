@@ -157,7 +157,11 @@ export default function AdminGalleryPage() {
           {items.map((item) => (
             <div key={item.id} className="overflow-hidden rounded-2xl border border-navy-100 bg-white shadow-soft">
               <div className="aspect-[4/3] bg-navy-50 relative">
-                {item.thumbnail_url || item.display_url ? (
+                {item.file_type === "video" && (item.display_url || item.thumbnail_url) ? (
+                  <video src={item.display_url || item.thumbnail_url} controls className="h-full w-full object-cover" aria-label={item.title ?? "Gallery video"} />
+                ) : item.file_type === "document" && (item.display_url || item.thumbnail_url) ? (
+                  <a href={item.display_url || item.thumbnail_url} target="_blank" rel="noreferrer" className="flex h-full items-center justify-center text-sm font-semibold text-teal-700 underline">Open PDF</a>
+                ) : item.thumbnail_url || item.display_url ? (
                   <img src={item.thumbnail_url || item.display_url} alt={item.title ?? ""} className="h-full w-full object-cover" loading="lazy" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-navy-300">No image</div>

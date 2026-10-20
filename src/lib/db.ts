@@ -54,6 +54,8 @@ export interface User {
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
+  consent_given?: number;
+  consent_at?: string | null;
 }
 
 export interface Hospital {
@@ -484,6 +486,13 @@ export function initDb(): void {
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_otp_identifier ON otp_verifications(identifier);
+
+    -- Persistent OTP send limits keyed by a privacy-preserving phone/IP identifier.
+    CREATE TABLE IF NOT EXISTS otp_request_limits (
+      identifier TEXT PRIMARY KEY,
+      window_started_at TEXT NOT NULL,
+      request_count INTEGER NOT NULL DEFAULT 0
+    );
 
     -- Sessions (server-side, for OAuth users)
     CREATE TABLE IF NOT EXISTS user_sessions (

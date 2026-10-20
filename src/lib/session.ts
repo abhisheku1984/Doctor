@@ -15,6 +15,8 @@ export interface AdminSession {
     role: string;
     hospital_id: string | null;
     avatar_url: string | null;
+    mobile_verified?: boolean;
+    consent_given?: boolean;
     loginAt: string;
   };
 }
@@ -91,7 +93,7 @@ export async function verifySessionValue(value: string | undefined): Promise<Adm
 
 // ---- User session helpers ----
 
-export async function createUserSessionValue(user: { id: string; email: string; name: string; role: string; hospital_id: string | null; avatar_url?: string | null }): Promise<string> {
+export async function createUserSessionValue(user: { id: string; email: string; name: string; role: string; hospital_id: string | null; avatar_url?: string | null; mobile_verified?: boolean; consent_given?: boolean }): Promise<string> {
   const payload = toBase64Url(JSON.stringify({
     user: {
       id: user.id,
@@ -100,6 +102,8 @@ export async function createUserSessionValue(user: { id: string; email: string; 
       role: user.role,
       hospital_id: user.hospital_id,
       avatar_url: user.avatar_url ?? null,
+      mobile_verified: !!user.mobile_verified,
+      consent_given: !!user.consent_given,
       loginAt: new Date().toISOString(),
     }
   }));
@@ -107,7 +111,7 @@ export async function createUserSessionValue(user: { id: string; email: string; 
   return `${payload}.${sig}`;
 }
 
-export async function createUserSessionCookie(user: { id: string; email: string; name: string; role: string; hospital_id: string | null; avatar_url?: string | null }): Promise<string> {
+export async function createUserSessionCookie(user: { id: string; email: string; name: string; role: string; hospital_id: string | null; avatar_url?: string | null; mobile_verified?: boolean; consent_given?: boolean }): Promise<string> {
   const maxAge = 60 * 60 * 24 * 7; // 7 days for regular users
   const value = await createUserSessionValue(user);
   // Set both cookies for compatibility

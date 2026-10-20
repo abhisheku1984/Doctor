@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-guard";
-import { createGalleryItem } from "@/lib/gallery";
+import { createGalleryItem, updateGalleryItem, isValidCategory } from "@/lib/gallery";
 import { uploadToDrive, isDriveConfigured, GALLERY_FOLDERS } from "@/lib/google/drive";
 import { initDb } from "@/lib/db";
+import fs from "fs/promises";
+import path from "path";
+import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +26,12 @@ export async function POST(req: NextRequest) {
     const category = (formData.get("category") as string) || "general";
     const title = (formData.get("title") as string) || null;
     const caption = (formData.get("caption") as string) || null;
-    const hospital_id = (formData.get("hospital_id") as string) || ctx.user?.hospital_id || "hosp_default";
+    const hospital_id = role === "super_admin"
+      ? (formData.get("hospital_id") as string) || "hosp_default"
+      : ctx.user?.hospital_id || "hosp_default";
 
     if (!file) return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
+    if (!isValidCategory(category)) return NextResponse.json({ error: "Invalid gallery category." }, { status: 400 });
 
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json({ error: `Unsupported file type: ${file.type}. Allowed: ${ALLOWED_TYPES.join(", ")}` }, { status: 400 });
@@ -44,29 +50,37 @@ export async function POST(req: NextRequest) {
     let thumbnailUrl: string | null = null;
 
     if (isDriveReady) {
-      const folderPath = GALLERY_FOLDERS[category] || GALLERY_FOLDERS["general"];
-      const result = await uploadToDrive({
-        fileName: file.name,
-        mimeType: file.type,
-        buffer,
-        folderPath,
-      });
-      if (result.ok && result.file) {
-        driveFileId = result.file.id;
-        driveFolderId = result.file.parents?.[0] ?? null;
-        displayUrl = `https://drive.google.com/uc?export=view&id=${result.file.id}`;
-        thumbnailUrl = `https://drive.google.com/thumbnail?id=${result.file.id}&sz=w400`;
-      } else if (!result.ok) {
-        // Drive upload failed — log but continue with local placeholder
-        console.warn("[gallery] Drive upload failed:", result.error);
+      try {
+        const folderPath = GALLERY_FOLDERS[category] || GALLERY_FOLDERS["general"];
+        const result = await uploadToDrive({ fileName: file.name, mimeType: file.type, buffer, folderPath });
+        if (result.ok && result.file) {
+          driveFileId = result.file.id;
+          driveFolderId = result.file.parents?.[0] ?? null;
+          displayUrl = `https://drive.google.com/uc?export=view&id=${result.file.id}`;
+          thumbnailUrl = `https://drive.google.com/thumbnail?id=${result.file.id}&sz=w400`;
+        } else {
+          console.warn("[gallery] Drive upload failed; falling back to local storage:", result.error);
+        }
+      } catch (e) {
+        console.warn("[gallery] Drive upload errored; falling back to local storage:", e);
       }
     }
 
-    // If Drive not configured, store with local display URL (will be served via /api/gallery/file if needed)
-    // For now, use a placeholder that the frontend handles gracefully
     const fileType = file.type.startsWith("video/") ? "video" : file.type === "application/pdf" ? "document" : "image";
+    let localPath: string | null = null;
+    if (!driveFileId) {
+      const extension: Record<string, string> = {
+        "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif",
+        "video/mp4": ".mp4", "video/webm": ".webm", "application/pdf": ".pdf",
+      };
+      const diskName = `${crypto.randomUUID()}${extension[file.type]}`;
+      const diskDir = path.join(process.cwd(), "data", "gallery");
+      await fs.mkdir(diskDir, { recursive: true });
+      await fs.writeFile(path.join(diskDir, diskName), buffer, { flag: "wx" });
+      localPath = `data/gallery/${diskName}`;
+    }
 
-    const item = createGalleryItem({
+    let item = createGalleryItem({
       hospital_id,
       category,
       title: title || file.name.replace(/\.[^.]+$/, ""),
@@ -79,18 +93,23 @@ export async function POST(req: NextRequest) {
       file_size: file.size,
       thumbnail_url: thumbnailUrl || displayUrl,
       display_url: displayUrl,
+      local_path: localPath,
       status: "published",
       uploaded_by: ctx.user?.id ?? ctx.session?.admin?.username ?? "admin",
     }, ctx.user?.email ?? ctx.session?.admin?.username ?? "admin");
+    if (localPath) {
+      const localUrl = `/api/gallery/files/${item.id}`;
+      item = updateGalleryItem(item.id, { display_url: localUrl, thumbnail_url: fileType === "image" ? localUrl : null });
+    }
 
     return NextResponse.json({
       ok: true,
       item,
       driveConfigured: isDriveReady,
       driveUploaded: !!driveFileId,
-      message: isDriveReady
-        ? driveFileId ? "Uploaded to Google Drive successfully." : "Drive upload failed, saved locally. Check Drive configuration."
-        : "Saved locally. Configure Google Drive for cloud storage (see setup docs).",
+      message: driveFileId
+        ? "Uploaded to Google Drive successfully."
+        : isDriveReady ? "Drive upload failed; file saved locally as a fallback." : "File saved locally. Configure Google Drive for cloud storage.",
     }, { status: 201 });
   } catch (e) {
     console.error("[gallery] upload error:", e);

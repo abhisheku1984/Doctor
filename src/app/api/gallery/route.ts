@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listGalleryItems, countGalleryItems, createGalleryItem, GALLERY_CATEGORIES } from "@/lib/gallery";
+import { listGalleryItems, listAllGalleryItems, countGalleryItems, createGalleryItem, GALLERY_CATEGORIES } from "@/lib/gallery";
 import { getAuthContext } from "@/lib/auth-guard";
 import { initDb } from "@/lib/db";
 
@@ -15,8 +15,15 @@ export async function GET(req: NextRequest) {
   const offset = (page - 1) * limit;
   const search = searchParams.get("search") || undefined;
 
-  const items = listGalleryItems({ hospital_id, category, status: "published", search, limit, offset });
-  const total = countGalleryItems({ hospital_id, category, status: "published" });
+  const ctx = await getAuthContext(req);
+  const role = ctx.user?.role ?? (ctx.session?.admin ? "super_admin" : null);
+  const canManage = !!role && ["super_admin", "hospital_owner"].includes(role);
+  const wantsAll = searchParams.get("status") === "all" && canManage;
+  const scopedHospital = role === "hospital_owner" ? ctx.user?.hospital_id ?? "hosp_default" : hospital_id;
+  const items = wantsAll
+    ? listAllGalleryItems({ hospital_id: scopedHospital, category, limit, offset })
+    : listGalleryItems({ hospital_id: scopedHospital, category, status: "published", search, limit, offset });
+  const total = countGalleryItems({ hospital_id: scopedHospital, category, status: wantsAll ? undefined : "published" });
 
   return NextResponse.json({
     items,
@@ -40,7 +47,7 @@ export async function POST(req: NextRequest) {
     if (!category) return NextResponse.json({ error: "Category is required." }, { status: 400 });
 
     const item = createGalleryItem({
-      hospital_id: body.hospital_id ?? ctx.user?.hospital_id ?? "hosp_default",
+      hospital_id: role === "super_admin" ? body.hospital_id ?? "hosp_default" : ctx.user?.hospital_id ?? "hosp_default",
       category,
       title: title ?? null,
       caption: caption ?? null,

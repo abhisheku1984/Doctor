@@ -154,6 +154,8 @@ export default function Gallery({ hospitalId }: { hospitalId?: string }) {
                       <span className="text-4xl">🎬</span>
                       <span className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">Video</span>
                     </div>
+                  ) : item.file_type === "document" ? (
+                    <div className="flex h-full w-full items-center justify-center bg-navy-50 text-4xl" aria-label="PDF document">📄</div>
                   ) : item.display_url || item.thumbnail_url ? (
                     <img
                       src={item.thumbnail_url || item.display_url || ""}
@@ -244,6 +246,8 @@ export default function Gallery({ hospitalId }: { hospitalId?: string }) {
           <div onClick={(e) => e.stopPropagation()} className="max-h-[90vh] max-w-4xl w-full">
             {lightbox.file_type === "video" ? (
               <video src={lightbox.display_url ?? ""} controls className="max-h-[80vh] w-full rounded-xl" />
+            ) : lightbox.file_type === "document" ? (
+              <a href={lightbox.display_url || lightbox.thumbnail_url || ""} target="_blank" rel="noreferrer" className="mx-auto block max-w-max rounded-xl bg-white px-6 py-4 text-sm font-semibold text-teal-700 underline">Open PDF document</a>
             ) : (
               <img
                 src={lightbox.display_url || lightbox.thumbnail_url || ""}
