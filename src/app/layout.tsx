@@ -6,13 +6,20 @@ import Footer from "@/components/Footer";
 import { DemoModeBanner } from "@/components/DemoModeBanner";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { ReceptionistWidget } from "@/components/ReceptionistWidget";
+import VisitorTracker from "@/components/VisitorTracker";
 import { ClinicConfigProvider } from "@/components/ClinicConfigProvider";
 import { getConfig, isConfigured } from "@/lib/config";
 import { initDb } from "@/lib/db";
 
 export const metadata: Metadata = {
-  title: "Dr. XYZ — Clinic & Online Consultations",
-  description: "Book in-person or online consultations with Dr. XYZ. Live availability, instant confirmation.",
+  title: "City Care Hospital — Advanced Healthcare & Online Consultations",
+  description: "Book in-person or online consultations with our expert doctors. Modern facilities, live availability, instant confirmation, gallery, billing & more.",
+  keywords: ["hospital", "doctors", "appointment", "healthcare", "consultation", "medical"],
+  openGraph: {
+    title: "City Care Hospital — Advanced Healthcare",
+    description: "Book appointments with expert doctors. Gallery, billing, and patient dashboard.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -54,9 +61,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <DemoModeBanner />
             <Navbar />
             <main id="main">{children}</main>
+            <VisitorTracker />
             <Footer
               doctorName={cfg.doctor.name}
-              clinicName={isConfigured(cfg.clinic.name) ? cfg.clinic.name : ""}
+              clinicName={isConfigured(cfg.clinic.name) ? cfg.clinic.name : "City Care Hospital"}
               emergencyNumber={cfg.clinic.emergencyNumber || "112"}
             />
             <ReceptionistWidget />

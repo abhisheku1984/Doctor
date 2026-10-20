@@ -116,3 +116,17 @@ test("unanswerable questions escalate to staff without fabrication", async () =>
   assert.ok(/don't have a verified answer/i.test(r.text));
   assert.ok(/clinic staff/i.test(r.text));
 });
+
+
+test("booking replies include selectable date cards and done exits cleanly", async () => {
+  const sid = "cards-and-done";
+  await handleMessage(sid, "book an appointment");
+  const dates = await handleMessage(sid, "in person");
+  assert.equal(dates.state, "collect_date");
+  assert.ok(dates.cards && dates.cards.length > 0, "available dates must be returned as UI cards");
+  assert.ok(dates.cards!.every((card) => card.action?.payload.startsWith("date:")));
+
+  const done = await handleMessage(sid, "done");
+  assert.equal(done.state, "idle");
+  assert.match(done.text, /welcome|help/i);
+});

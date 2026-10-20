@@ -39,6 +39,10 @@ export type AppointmentStatus = "confirmed" | "cancelled" | "completed" | "no_sh
 
 export interface Appointment {
   id: string;
+  hospital_id?: string | null;
+  doctor_id?: string | null;
+  patient_id?: string | null;
+  billing_id?: string | null;
   idempotency_key: string | null;
   patient_name: string;
   patient_mobile: string;
@@ -455,12 +459,13 @@ export function findAppointment(ref: string, mobile: string): Appointment | null
   return (getDb().prepare("SELECT * FROM appointments WHERE id = ? AND patient_mobile = ?").get(ref, mobile) as unknown as Appointment) || null;
 }
 
-export function listAppointments(filter: { date?: string; status?: string; mode?: string; query?: string; limit?: number } = {}): Appointment[] {
+export function listAppointments(filter: { date?: string; status?: string; mode?: string; query?: string; hospital_id?: string; limit?: number } = {}): Appointment[] {
   const clauses: string[] = [];
   const params: string[] = [];
   if (filter.date) { clauses.push("date = ?"); params.push(filter.date); }
   if (filter.status) { clauses.push("status = ?"); params.push(filter.status); }
   if (filter.mode) { clauses.push("mode = ?"); params.push(filter.mode); }
+  if (filter.hospital_id) { clauses.push("hospital_id = ?"); params.push(filter.hospital_id); }
   if (filter.query) {
     clauses.push("(id LIKE ? OR patient_name LIKE ? OR patient_mobile LIKE ?)");
     const q = `%${filter.query}%`;

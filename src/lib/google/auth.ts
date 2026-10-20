@@ -32,3 +32,4 @@ export function getGoogleAuth(scopes: string[]): GoogleAuthResult {
 
 export const CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar.events"];
 export const SHEETS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
+export const DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"];

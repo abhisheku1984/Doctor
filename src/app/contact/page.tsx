@@ -1,8 +1,8 @@
 import { getConfig } from "@/lib/config";
+import { initDb } from "@/lib/db";
 import ContactContent from "@/components/content/ContactContent";
 
-export const metadata = { title: "Contact & Clinic Location" };
-
 export default function ContactPage() {
+  initDb();
   return <ContactContent cfg={getConfig()} />;
 }

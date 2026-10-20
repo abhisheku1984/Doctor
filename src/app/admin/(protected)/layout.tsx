@@ -6,10 +6,18 @@ import AdminHeader from "@/components/AdminHeader";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
-  // Server-side verification — never trust the frontend alone.
-  const session = await verifySessionValue(cookieStore.get("drxyz_admin_session")?.value);
-  if (!session?.admin) {
+  // Accept either admin or user (hospital_owner/super_admin) sessions
+  const adminSession = await verifySessionValue(cookieStore.get("drxyz_admin_session")?.value);
+  const userSession = await verifySessionValue(cookieStore.get("hospital_session")?.value);
+  const session = adminSession || userSession;
+
+  if (!session?.admin && !session?.user) {
     redirect("/admin/login");
+  }
+
+  // Patients should not access admin
+  if (session?.user && session.user.role === "patient") {
+    redirect("/dashboard");
   }
 
   return (
