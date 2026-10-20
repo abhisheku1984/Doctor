@@ -74,7 +74,17 @@ export default function AdminAppointments() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-3xl font-semibold text-navy-900">{t("appt.title")}</h1>
-        <Button variant="secondary" onClick={() => window.open("/api/admin/appointments", "_self")}>{t("appt.exportCsv")}</Button>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            const params = new URLSearchParams({ export: "csv" });
+            if (q) params.set("q", q);
+            if (status) params.set("status", status);
+            if (mode) params.set("mode", mode);
+            if (date) params.set("date", date);
+            window.location.href = `/api/admin/appointments?${params.toString()}`;
+          }}
+        >{t("appt.exportCsv")}</Button>
       </div>
 
       <Card className="flex flex-wrap items-end gap-3 p-4">
