@@ -35,7 +35,6 @@ export function ReceptionistWidget() {
   const [sessionId] = useState(() => `web-${Math.random().toString(36).slice(2, 10)}`);
   const [capabilities, setCapabilities] = useState<AssistantReply["capabilities"]>();
   const [chatState, setChatState] = useState<string>("idle");
-  const [pendingCards, setPendingCards] = useState<AssistantReply["cards"]>([]);
   const [pickerDate, setPickerDate] = useState("");
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [sttSupported, setSttSupported] = useState(false);
@@ -69,9 +68,10 @@ export function ReceptionistWidget() {
         setMessages((m) => {
           // Only replace an initial greeting; keep an ongoing conversation.
           const onlyGreeting = m.length === 0 || (m.length === 1 && m[0].role === "assistant");
-          return onlyGreeting ? [{ role: "assistant", text: data.text.replace(/\*\*/g, "") }] : m;
+          return onlyGreeting ? [{ role: "assistant", text: data.text.replace(/\*\*/g, ""), cards: data.cards }] : m;
         });
         setCapabilities(data.capabilities);
+        setChatState(data.state ?? "idle");
       })
       .catch(() => {});
     return () => {
@@ -124,7 +124,9 @@ export function ReceptionistWidget() {
         });
         const data: AssistantReply = await res.json();
         const reply = data.text ?? t("rw.errorReply");
-        setMessages((m) => [...m, { role: "assistant", text: reply.replace(/\*\*/g, "") }]);
+        setMessages((m) => [...m, { role: "assistant", text: reply.replace(/\*\*/g, ""), cards: data.cards }]);
+        setChatState(data.state ?? "idle");
+        setPickerDate("");
         if (data.capabilities) setCapabilities(data.capabilities);
         setState("idle");
         speak(reply);
@@ -138,9 +140,8 @@ export function ReceptionistWidget() {
 
   const onCardAction = useCallback(
     async (label: string, payload: string) => {
-      // Show chosen option as user message for context
-      setMessages((m) => [...m, { role: "user", text: label }]);
-      setPendingCards([]);
+      // Show chosen option as user message for context; reset is a UI action.
+      if (payload !== "reset") setMessages((m) => [...m, { role: "user", text: label }]);
       setState("loading");
       try {
         const res = await fetch("/api/receptionist", {
@@ -150,7 +151,10 @@ export function ReceptionistWidget() {
         });
         const data: AssistantReply = await res.json();
         const reply = data.text ?? "";
-        if (reply) setMessages((m) => [...m, { role: "assistant", text: reply.replace(/\*\*/g, "") }]);
+        if (reply) setMessages((m) => [...m, { role: "assistant", text: reply.replace(/\*\*/g, ""), cards: data.cards }]);
+        setChatState(data.state ?? "idle");
+        setPickerDate("");
+        if (data.capabilities) setCapabilities(data.capabilities);
         setState("idle");
         speak(reply);
       } catch {
@@ -188,7 +192,6 @@ export function ReceptionistWidget() {
     stopSpeech();
     setMessages([]);
     setChatState("idle");
-    setPendingCards([]);
     setState("idle");
     void handlePayload("reset");
   }, [handlePayload, stopSpeech]);
@@ -302,6 +305,26 @@ export function ReceptionistWidget() {
                   {m.text.split("\n").map((line, j) => (
                     <p key={j} className={j > 0 ? "mt-1" : ""}>{line}</p>
                   ))}
+                  {m.role === "assistant" && m.cards?.length ? (
+                    <div className="mt-3 grid grid-cols-1 gap-2">
+                      {m.cards.map((card, cardIndex) => (
+                        <div key={`${card.action?.payload ?? card.title}-${cardIndex}`} className="rounded-xl border border-teal-100 bg-white p-2.5 text-navy-800 shadow-sm">
+                          <p className="font-semibold">{card.title}</p>
+                          {card.body ? <p className="mt-0.5 text-xs text-navy-500">{card.body}</p> : null}
+                          {card.action ? (
+                            <button
+                              type="button"
+                              onClick={() => void onCardAction(card.action!.label, card.action!.payload)}
+                              disabled={state === "loading"}
+                              className="mt-2 w-full rounded-lg bg-teal-600 px-3 py-2 text-left text-xs font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+                            >
+                              {card.action.label}
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -314,6 +337,35 @@ export function ReceptionistWidget() {
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          {chatState === "collect_date" && (
+            <form
+              className="flex items-end gap-2 border-t border-navy-100 bg-teal-50/60 px-3 py-2.5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (pickerDate) void onCardAction(pickerDate, `date:${pickerDate}`);
+              }}
+            >
+              <label className="min-w-0 flex-1 text-xs font-medium text-navy-700">
+                Choose a date
+                <input
+                  type="date"
+                  value={pickerDate}
+                  min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)}
+                  onChange={(e) => setPickerDate(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-navy-200 bg-white px-2 py-2 text-sm"
+                  aria-label="Choose appointment date"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={!pickerDate || state === "loading"}
+                className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-40"
+              >
+                Go
+              </button>
+            </form>
+          )}
 
           {/* Voice controls */}
           <div className="flex items-center gap-2 border-t border-navy-100 px-4 py-2">

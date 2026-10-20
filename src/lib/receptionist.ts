@@ -115,7 +115,7 @@ const INTENTS: Intent[] = [
   { name: "cancellation", patterns: [/\b(cancel|reschedule|postpone|refund|policy)\b/i, /रद्द|कैंसिल|स्थगित|वापसी|नीति/] },
   { name: "qualifications", patterns: [/\b(qualification|experience|degree|md|mbbs|specialist|registration)\b/i, /योग्यता|डिग्री|अनुभव|पंजीकरण/] },
   { name: "status", patterns: [/\b(my appointment|appointment status|reference|booking status)\b/i, /मेरी अपॉइंटमेंट|संदर्भ|स्टेटस/] },
-  { name: "thanks", patterns: [/\b(thanks|thank you|thx|great|ok|okay|bye|goodbye)\b/i, /धन्यवाद|शुक्रिया|बाय/] },
+  { name: "thanks", patterns: [/\b(thanks|thank you|thx|great|ok|okay|bye|goodbye|done)\b/i, /धन्यवाद|शुक्रिया|बाय/] },
 ];
 
 function detectIntent(text: string): string {
@@ -213,6 +213,13 @@ export async function handleMessage(sessionId: string, raw: string, lang: Lang =
   // 1) Safety boundaries always win.
   const safety = safetyReply(text, lang);
   if (safety) return { text: safety, state: ctx.state };
+
+  // A simple "done" should end the conversation, not fall through to the
+  // unrelated-answer escalation (or be interpreted as a booking field).
+  if (/^(done|that['’]?s all|thats all|stop|never mind)$/i.test(text)) {
+    saveContext(sessionId, { state: "idle" });
+    return { text: L(lang, "chat.thanks"), state: "idle" };
+  }
 
   // 2) In-booking flows, interpret answers first.
   switch (ctx.state) {
