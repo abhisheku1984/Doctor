@@ -233,6 +233,8 @@ export function transaction<T>(fn: () => T): T {
 
 export function initDb(): void {
   const d = getDb();
+  // Step 1: Ensure base appointments table exists with new columns.
+  // For fresh DBs, create with full schema. For existing DBs, add missing columns.
   d.exec(`
     CREATE TABLE IF NOT EXISTS appointments (
       id TEXT PRIMARY KEY,
@@ -240,35 +242,35 @@ export function initDb(): void {
       patient_name TEXT NOT NULL,
       patient_mobile TEXT NOT NULL,
       patient_email TEXT,
-      patient_id TEXT,
-      hospital_id TEXT,
-      doctor_id TEXT,
       mode TEXT NOT NULL CHECK(mode IN ('in_person','online')),
       service_id TEXT NOT NULL,
       service_name TEXT NOT NULL,
       date TEXT NOT NULL,
       time TEXT NOT NULL,
       duration_min INTEGER NOT NULL,
-      status TEXT NOT NULL DEFAULT 'confirmed' CHECK(status IN ('pending','confirmed','checked_in','completed','cancelled','no_show','rescheduled')),
+      status TEXT NOT NULL DEFAULT 'confirmed' CHECK(status IN ('confirmed','cancelled','completed','no_show')),
       calendar_event_id TEXT,
       calendar_sync_status TEXT NOT NULL DEFAULT 'pending',
       sheets_sync_status TEXT NOT NULL DEFAULT 'pending',
       notification_status TEXT NOT NULL DEFAULT 'pending',
       online_link TEXT,
       notes TEXT,
-      billing_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       cancelled_at TEXT,
       cancel_reason TEXT
     );
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_apt_slot
-      ON appointments(hospital_id, doctor_id, date, time) WHERE status IN ('confirmed','pending','checked_in');
+  `);
+  // Migrate old DB: add columns that may be missing
+  migrateAppointmentsTable();
+  // Now safe to create indexes that reference new columns
+  try { d.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_apt_slot ON appointments(hospital_id, doctor_id, date, time) WHERE status IN ('confirmed','pending','checked_in');`); } catch {}
+  try { d.exec(`CREATE INDEX IF NOT EXISTS idx_apt_hospital ON appointments(hospital_id);`); } catch {}
+  try { d.exec(`CREATE INDEX IF NOT EXISTS idx_apt_doctor ON appointments(doctor_id);`); } catch {}
+  try { d.exec(`CREATE INDEX IF NOT EXISTS idx_apt_patient ON appointments(patient_id);`); } catch {}
+  d.exec(`
     CREATE INDEX IF NOT EXISTS idx_apt_date ON appointments(date);
     CREATE INDEX IF NOT EXISTS idx_apt_mobile ON appointments(patient_mobile);
-    CREATE INDEX IF NOT EXISTS idx_apt_hospital ON appointments(hospital_id);
-    CREATE INDEX IF NOT EXISTS idx_apt_doctor ON appointments(doctor_id);
-    CREATE INDEX IF NOT EXISTS idx_apt_patient ON appointments(patient_id);
 
     CREATE TABLE IF NOT EXISTS schedule_rules (
       day_of_week INTEGER PRIMARY KEY,
