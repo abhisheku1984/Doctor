@@ -82,6 +82,7 @@ export default function Navbar() {
             ))}
           </div>
 
+          <Link href="/admin/login" className="hidden rounded-xl bg-navy-900 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800 sm:inline-flex">Admin</Link>
           {user ? (
             <div className="hidden sm:flex items-center gap-2">
               <Link
@@ -170,11 +171,10 @@ export default function Navbar() {
             ))}
           </div>
           <div className="mt-3 flex gap-2">
+            <Link href="/admin/login" onClick={() => setOpen(false)} className="block rounded-lg bg-navy-900 px-3 py-2.5 text-center text-sm font-semibold text-white">Admin login</Link>
             {user ? (
               <>
-                <Link href={user.role === "patient" ? "/dashboard" : "/admin"} className="flex-1 rounded-xl bg-navy-900 px-4 py-2.5 text-center text-sm font-semibold text-white">
-                  Dashboard
-                </Link>
+                <Link href={user.role === "patient" ? "/dashboard" : "/admin"} className="flex-1 rounded-xl bg-navy-900 px-4 py-2.5 text-center text-sm font-semibold text-white">Dashboard</Link>
                 <button onClick={handleLogout} className="rounded-xl border border-navy-200 px-4 py-2.5 text-sm font-medium">Sign out</button>
               </>
             ) : (
