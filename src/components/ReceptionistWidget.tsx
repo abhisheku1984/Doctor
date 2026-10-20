@@ -7,6 +7,7 @@ import { useLanguage, useLocale } from "./LanguageProvider";
 interface Message {
   role: "user" | "assistant";
   text: string;
+  cards?: AssistantReply["cards"];
 }
 
 type VoiceState = "idle" | "listening" | "speaking" | "loading" | "error" | "disconnected";
@@ -33,6 +34,9 @@ export function ReceptionistWidget() {
   const [captions, setCaptions] = useState(true);
   const [sessionId] = useState(() => `web-${Math.random().toString(36).slice(2, 10)}`);
   const [capabilities, setCapabilities] = useState<AssistantReply["capabilities"]>();
+  const [chatState, setChatState] = useState<string>("idle");
+  const [pendingCards, setPendingCards] = useState<AssistantReply["cards"]>([]);
+  const [pickerDate, setPickerDate] = useState("");
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [sttSupported, setSttSupported] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -132,8 +136,11 @@ export function ReceptionistWidget() {
     [sessionId, state, speak, lang, t]
   );
 
-  const handlePayload = useCallback(
-    async (payload: string) => {
+  const onCardAction = useCallback(
+    async (label: string, payload: string) => {
+      // Show chosen option as user message for context
+      setMessages((m) => [...m, { role: "user", text: label }]);
+      setPendingCards([]);
       setState("loading");
       try {
         const res = await fetch("/api/receptionist", {
@@ -152,6 +159,8 @@ export function ReceptionistWidget() {
     },
     [sessionId, speak, lang]
   );
+
+  const handlePayload = useCallback((payload: string) => onCardAction(payload, payload), [onCardAction]);
 
   const startListening = useCallback(() => {
     if (!sttSupported) return;
@@ -178,6 +187,8 @@ export function ReceptionistWidget() {
   const restart = useCallback(() => {
     stopSpeech();
     setMessages([]);
+    setChatState("idle");
+    setPendingCards([]);
     setState("idle");
     void handlePayload("reset");
   }, [handlePayload, stopSpeech]);

@@ -11,7 +11,7 @@
  */
 import { getConfig, isConfigured, integrationStatus } from "./config";
 import { getDayAvailability, getAvailabilityRange, createBooking, SlotUnavailableError, type ConsultMode, type DayAvailability } from "./booking";
-import { displayDateL, displayTimeL } from "./time";
+import { displayDateL, displayTimeL, formatTime } from "./time";
 import { translate, LANG_LOCALES, type Lang, type TranslationKey } from "./i18n";
 import { getDb } from "./db";
 
@@ -225,19 +225,25 @@ export async function handleMessage(sessionId: string, raw: string, lang: Lang =
       return presentSlots({ ...ctx, state: "collect_date" }, lang);
     }
     case "collect_date": {
-      const m = text.match(/(\d{4}-\d{2}-\d{2})/) ?? text.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
-      if (!m) {
-        // Allow picking via card payload "date:YYYY-MM-DD"
-        const pm = text.match(/date:(\d{4}-\d{2}-\d{2})/);
-        if (pm) { ctx.date = pm[1]; }
-        else return { text: L(lang, "chat.dateAsk"), state: ctx.state };
-      } else if (m[1] && m[1].includes("-")) {
-        ctx.date = m[1];
+      // Accept YYYY-MM-DD, DD-MM-YYYY, DD/MM/YYYY, DD.MM.YYYY, D-M-YY etc.
+      let dateKey: string | null = null;
+      const payloadDate = text.match(/date:(\d{4}-\d{2}-\d{2})/);
+      if (payloadDate) {
+        dateKey = payloadDate[1];
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(text.trim())) {
+        dateKey = text.trim();
       } else {
-        const [, d, mo, y] = m as RegExpMatchArray;
-        const year = y!.length === 2 ? `20${y}` : y!;
-        ctx.date = `${year}-${mo!.padStart(2, "0")}-${d!.padStart(2, "0")}`;
+        const dm = text.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+        if (dm) {
+          const [, dd, mm, yy] = dm;
+          const year = yy.length === 2 ? `20${yy}` : yy;
+          const iso = `${year}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+          const d = new Date(`${iso}T00:00:00+05:30`);
+          if (!isNaN(d.getTime())) dateKey = iso;
+        }
       }
+      if (!dateKey) return { text: L(lang, "chat.dateAsk"), state: ctx.state };
+      ctx.date = dateKey;
       const day = await getDayAvailability(ctx.date, ctx.mode ?? "in_person");
       if (!day.open) {
         ctx.state = "collect_date";
@@ -257,35 +263,44 @@ export async function handleMessage(sessionId: string, raw: string, lang: Lang =
       ctx.slots = day.slots;
       ctx.state = "collect_time";
       saveContext(sessionId, ctx);
+      const timeCards: AssistantReply["cards"] = free.slice(0, 12).map((slot) => ({
+        title: fmtTime(slot.time, lang),
+        body: fmtDate(ctx.date!, lang),
+        action: { label: fmtTime(slot.time, lang), payload: `time:${slot.time}` },
+      }));
       return {
         text: L(lang, "chat.timesOnDate", {
           date: fmtDate(ctx.date, lang),
           times: free.slice(0, 8).map((s) => fmtTime(s.time, lang)).join(", "),
         }),
+        cards: timeCards,
         state: ctx.state,
       };
     }
     case "collect_time": {
-      const parsed = text.toLowerCase().match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/);
-      let minutes = -1;
-      if (parsed) {
-        let h = parseInt(parsed[1], 10);
-        const mins = parseInt(parsed[2] || "0", 10);
-        const ap = parsed[3];
-        if (ap === "pm" && h < 12) h += 12;
-        if (ap === "am" && h === 12) h = 0;
-        minutes = h * 60 + mins;
+      // Accept payload time:HH:MM, HH:MM 24h, or h:mm am/pm
+      let wantedTime: string | null = null;
+      const timePayload = text.match(/time:(\d{1,2}:\d{2})/);
+      if (timePayload) {
+        wantedTime = timePayload[1].padStart(5, "0");
+        const [hh, mm] = wantedTime.split(":");
+        wantedTime = `${hh.padStart(2, "0")}:${mm}`;
       } else {
-        const m24 = text.match(/^(\d{1,2}):(\d{2})$/);
-        if (m24) minutes = parseInt(m24[1], 10) * 60 + parseInt(m24[2], 10);
+        const parsed = text.toLowerCase().match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/);
+        if (parsed) {
+          let h = parseInt(parsed[1], 10);
+          const mins = parseInt(parsed[2] || "0", 10);
+          const ap = parsed[3];
+          if (ap === "pm" && h < 12) h += 12;
+          if (ap === "am" && h === 12) h = 0;
+          wantedTime = formatTime(h * 60 + mins);
+        } else {
+          const m24 = text.trim().match(/^(\d{1,2}):(\d{2})$/);
+          if (m24) wantedTime = `${m24[1].padStart(2, "0")}:${m24[2]}`;
+        }
       }
-      const fmt = (n: number) => {
-        const h = Math.floor(n / 60);
-        const mm = n % 60;
-        const hh = h % 12 || 12;
-        return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-      };
-      const slot = ctx.slots?.find((s) => s.available && s.time === fmt(minutes));
+      if (!wantedTime) return { text: L(lang, "chat.timeUnavailable"), state: ctx.state };
+      const slot = ctx.slots?.find((s) => s.available && s.time === wantedTime);
       if (!slot) {
         return { text: L(lang, "chat.timeUnavailable"), state: ctx.state };
       }
@@ -490,6 +505,11 @@ function buildReview(ctx: ChatContext, lang: Lang): AssistantReply {
 /** Card payloads sent by the UI (e.g. "date:2026-10-25", "intent:book"). */
 export async function handlePayload(sessionId: string, payload: string, lang: Lang = "en"): Promise<AssistantReply> {
   if (payload.startsWith("date:")) return handleMessage(sessionId, payload.slice(5), lang);
+  if (payload.startsWith("time:")) return handleMessage(sessionId, payload, lang);
+  if (payload === "show:slots") {
+    const ctx = loadContext(sessionId);
+    return presentSlots({ ...ctx, state: "collect_date" }, lang);
+  }
   if (payload === "intent:book") return handleMessage(sessionId, "book an appointment", lang);
   if (payload === "intent:contact") return handleMessage(sessionId, "contact number", lang);
   if (payload === "reset") {
