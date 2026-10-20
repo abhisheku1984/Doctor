@@ -1,8 +1,8 @@
 {
-  "name": "dr-xyz-clinic",
-  "version": "1.0.0",
+  "name": "hospital-management-system",
+  "version": "2.0.0",
   "private": true,
-  "description": "Premium AI-enabled clinic website for Dr. XYZ — booking, AI receptionist, Google Calendar & Sheets integration",
+  "description": "Complete hospital management system — booking, gallery with Google Drive, role-based auth, billing, analytics",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -19,7 +19,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "twilio": "^6.2.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "razorpay": "^2.9.6"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

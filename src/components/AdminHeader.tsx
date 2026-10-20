@@ -1,10 +1,21 @@
 "use client";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { availableLangs, LANG_LABELS } from "@/lib/i18n";
 
 export default function AdminHeader() {
   const { t, lang, setLang } = useLanguage();
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.user) setUserRole(d.user.role);
+    }).catch(() => {});
+  }, []);
+
+  const isSuperAdmin = userRole === "super_admin";
+
   return (
     <header className="border-b border-navy-100 bg-white">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
@@ -26,6 +37,16 @@ export default function AdminHeader() {
               {label}
             </Link>
           ))}
+          <Link href="/admin/doctors" className="rounded-lg px-3 py-2 font-medium text-navy-600 hover:bg-navy-50">Doctors</Link>
+          <Link href="/admin/gallery" className="rounded-lg px-3 py-2 font-medium text-navy-600 hover:bg-navy-50">Gallery</Link>
+          <Link href="/admin/billing" className="rounded-lg px-3 py-2 font-medium text-navy-600 hover:bg-navy-50">Billing</Link>
+          <Link href="/admin/analytics" className="rounded-lg px-3 py-2 font-medium text-navy-600 hover:bg-navy-50">Analytics</Link>
+          {isSuperAdmin && (
+            <>
+              <Link href="/admin/users" className="rounded-lg px-3 py-2 font-medium text-navy-600 hover:bg-navy-50">Users</Link>
+              <Link href="/admin/hospitals" className="rounded-lg px-3 py-2 font-medium text-navy-600 hover:bg-navy-50">Hospitals</Link>
+            </>
+          )}
         </nav>
         <div className="ml-auto flex items-center gap-3">
           <div className="flex items-center gap-1 rounded-lg border border-navy-100 p-0.5" role="group" aria-label={t("nav.language")}>
@@ -44,6 +65,11 @@ export default function AdminHeader() {
           <form action="/api/admin/logout" method="post">
             <button className="rounded-lg border border-navy-200 px-3 py-1.5 text-sm font-medium text-navy-700 hover:bg-navy-50">
               {t("admin.signOut")}
+            </button>
+          </form>
+          <form action="/api/auth/logout" method="post">
+            <button className="rounded-lg bg-navy-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-navy-800">
+              Sign out (all)
             </button>
           </form>
         </div>

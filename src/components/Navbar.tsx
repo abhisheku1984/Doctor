@@ -1,16 +1,18 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLanguage } from "./LanguageProvider";
 import { useClinicConfig } from "./ClinicConfigProvider";
 import { availableLangs, LANG_LABELS } from "@/lib/i18n";
 
 const links = [
-  { href: "/about", key: "nav.about" },
-  { href: "/services", key: "nav.services" },
-  { href: "/book", key: "nav.book" },
-  { href: "/contact", key: "nav.contact" },
+  { href: "/about", key: "nav.about" as const },
+  { href: "/services", key: "nav.services" as const },
+  { href: "/doctors", key: "nav.doctors" as const },
+  { href: "/gallery", key: "nav.gallery" as const },
+  { href: "/book", key: "nav.book" as const },
+  { href: "/contact", key: "nav.contact" as const },
 ] as const;
 
 export default function Navbar() {
@@ -18,6 +20,19 @@ export default function Navbar() {
   const cfg = useClinicConfig();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [user, setUser] = useState<{ name: string; role: string; avatar_url?: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.authenticated) setUser(d.user);
+    }).catch(() => {});
+  }, [pathname]);
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    setUser(null);
+    window.location.href = "/";
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-navy-100 bg-white/95 backdrop-blur">
@@ -34,7 +49,7 @@ export default function Navbar() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
           {links.map((l) => (
             <Link
               key={l.href}
@@ -66,14 +81,50 @@ export default function Navbar() {
               </button>
             ))}
           </div>
-          <Link
-            href="/book"
-            className="hidden rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-teal-700 sm:inline-flex"
-          >
-            {t("hero.book")}
-          </Link>
+
+          {user ? (
+            <div className="hidden sm:flex items-center gap-2">
+              <Link
+                href={user.role === "patient" ? "/dashboard" : "/admin"}
+                className="flex items-center gap-2 rounded-xl border border-navy-100 bg-navy-50 px-3 py-2 text-sm font-medium text-navy-700 hover:bg-navy-100"
+              >
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt={user.name} className="h-6 w-6 rounded-full" />
+                ) : (
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white">
+                    {user.name.charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <span className="hidden lg:inline max-w-[120px] truncate">{user.name}</span>
+                <span className="hidden lg:inline-flex rounded-full bg-teal-100 px-1.5 py-0.5 text-xs text-teal-700 capitalize">{user.role.replace("_", " ")}</span>
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="rounded-lg p-2 text-navy-400 hover:bg-navy-50 hover:text-navy-600"
+                title="Sign out"
+                aria-label="Sign out"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+              </button>
+            </div>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="hidden rounded-xl border border-navy-200 bg-white px-4 py-2.5 text-sm font-medium text-navy-700 hover:bg-navy-50 sm:inline-flex"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/book"
+                className="hidden rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-teal-700 sm:inline-flex"
+              >
+                {t("hero.book")}
+              </Link>
+            </>
+          )}
           <button
-            className="rounded-lg p-2 text-navy-700 hover:bg-navy-50 md:hidden"
+            className="rounded-lg p-2 text-navy-700 hover:bg-navy-50 lg:hidden"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-label={t("nav.menu")}
@@ -86,7 +137,7 @@ export default function Navbar() {
       </div>
 
       {open && (
-        <nav className="border-t border-navy-100 bg-white px-4 py-3 md:hidden" aria-label="Mobile">
+        <nav className="border-t border-navy-100 bg-white px-4 py-3 lg:hidden" aria-label="Mobile">
           {links.map((l) => (
             <Link
               key={l.href}
@@ -102,28 +153,36 @@ export default function Navbar() {
           <Link
             href="/appointments/lookup"
             onClick={() => setOpen(false)}
-            className={`block rounded-lg px-3 py-2.5 text-sm font-medium ${
-              pathname === "/appointments/lookup" ? "bg-navy-50 text-navy-900" : "text-navy-600"
-            }`}
+            className={`block rounded-lg px-3 py-2.5 text-sm font-medium ${pathname === "/appointments/lookup" ? "bg-navy-50 text-navy-900" : "text-navy-600"}`}
           >
             {t("nav.lookupLong")}
           </Link>
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-3 flex items-center gap-2 border-t border-navy-100 pt-3">
             {availableLangs().map((l) => (
               <button
                 key={l}
                 onClick={() => setLang(l)}
                 aria-pressed={lang === l}
-                className={`rounded-md px-2 py-1 text-xs font-semibold ${
-                  lang === l ? "bg-teal-600 text-white" : "text-navy-600 border border-navy-100"
-                }`}
+                className={`rounded-md px-2 py-1 text-xs font-semibold ${lang === l ? "bg-teal-600 text-white" : "text-navy-600 border border-navy-100"}`}
               >
                 {LANG_LABELS[l]}
               </button>
             ))}
-            <Link href="/book" className="ml-auto rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white">
-              {t("hero.book")}
-            </Link>
+          </div>
+          <div className="mt-3 flex gap-2">
+            {user ? (
+              <>
+                <Link href={user.role === "patient" ? "/dashboard" : "/admin"} className="flex-1 rounded-xl bg-navy-900 px-4 py-2.5 text-center text-sm font-semibold text-white">
+                  Dashboard
+                </Link>
+                <button onClick={handleLogout} className="rounded-xl border border-navy-200 px-4 py-2.5 text-sm font-medium">Sign out</button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="flex-1 rounded-xl border border-navy-200 px-4 py-2.5 text-center text-sm font-semibold">Sign in</Link>
+                <Link href="/book" className="flex-1 rounded-xl bg-teal-600 px-4 py-2.5 text-center text-sm font-semibold text-white">{t("hero.book")}</Link>
+              </>
+            )}
           </div>
         </nav>
       )}
