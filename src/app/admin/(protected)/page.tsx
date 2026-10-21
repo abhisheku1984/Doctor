@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, Badge } from "@/components/ui";
-import { useLanguage } from "@/components/LanguageProvider";
-import { translate, type TranslationKey } from "@/lib/i18n";
+import { Card, Badge } from "../../../components/ui";
+import { useLanguage } from "../../../components/LanguageProvider";
+import { translate, type TranslationKey } from "../../../lib/i18n";
 
 interface DashboardData {
   today: { date: string; label: string; count: number; appointments: Array<{ id: string; time: string; patient_name: string; mode: string; status: string }> };

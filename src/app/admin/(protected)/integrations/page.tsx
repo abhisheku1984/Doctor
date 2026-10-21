@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, Badge, Button } from "@/components/ui";
-import { useLanguage } from "@/components/LanguageProvider";
-import type { TranslationKey } from "@/lib/i18n";
+import { Card, Badge, Button } from "../../../../components/ui";
+import { useLanguage } from "../../../../components/LanguageProvider";
+import type { TranslationKey } from "../../../../lib/i18n";
 
 interface IntegrationData {
   status: Record<string, string>;
